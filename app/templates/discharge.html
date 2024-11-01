@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex">
+    <!-- Sidebar -->
+    {% include 'patient_management_sidebar.html' %}
+
+    <!-- Main Content -->
+    <div class="flex-1 p-8 overflow-auto">
+        <h1 class="text-2xl font-bold mb-6">Discharged Patients</h1>
+        
+        <!-- Filters -->
+        <form id="filterForm" class="mb-6">
+            <div class="flex space-x-4">
+                <input type="text" name="search" placeholder="Search discharged patients..." class="border p-2 rounded">
+                <input type="date" name="start_date" class="border p-2 rounded">
+                <input type="date" name="end_date" class="border p-2 rounded">
+                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Filter</button>
+            </div>
+        </form>
+        
+        <!-- Discharged Patients List -->
+        <div>
+            <h2 class="text-xl font-semibold mb-4">Discharged Patients List</h2>
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="py-2 px-4 text-left">Patient Name</th>
+                        <th class="py-2 px-4 text-left">Room Number</th>
+                        <th class="py-2 px-4 text-left">Attending Doctor</th>
+                        <th class="py-2 px-4 text-left">Admission Date</th>
+                        <th class="py-2 px-4 text-left">Discharge Date</th>
+                        <th class="py-2 px-4 text-left">Diagnosis</th>
+                    </tr>
+                </thead>
+                <tbody id="dischargedPatientsTableBody">
+                    <!-- Discharged patients will be loaded here dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadDischargedPatients() {
+    const formData = new FormData(document.getElementById('filterForm'));
+    const params = new URLSearchParams(formData);
+
+    fetch(`/discharge?${params.toString()}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(patients => {
+        const tbody = document.getElementById('dischargedPatientsTableBody');
+        tbody.innerHTML = '';
+        patients.forEach(patient => {
+            const admissionDate = new Date(patient.admission_date).toLocaleString('en-US', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            }).toUpperCase();
+            const dischargeDate = new Date(patient.discharge_date).toLocaleString('en-US', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            }).toUpperCase();
+
+            const row = `
+                <tr>
+                    <td class="py-2 px-4">${patient.patient_name}</td>
+                    <td class="py-2 px-4">${patient.room_number}</td>
+                    <td class="py-2 px-4">${patient.doctor_name}</td>
+                    <td class="py-2 px-4">${admissionDate}</td>
+                    <td class="py-2 px-4">${dischargeDate}</td>
+                    <td class="py-2 px-4">${patient.diagnosis}</td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+    });
+}
+
+document.getElementById('filterForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    loadDischargedPatients();
+});
+
+// Load discharged patients when the page loads
+loadDischargedPatients();
+</script>
+{% endblock %}

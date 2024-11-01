@@ -1,0 +1,12 @@
+<div class="w-64 bg-white shadow-md h-screen">
+    <h2 class="text-xl font-bold p-4">Patient Management</h2>
+    <ul class="space-y-2">
+        <li><a href="{{ url_for('main.appointment_management') }}" class="block px-4 py-2 text-blue-600 hover:bg-gray-100 {% if request.endpoint == 'main.appointment_management' %}bg-gray-100 font-bold{% endif %}">Appointment Management</a></li>
+        <li><a href="{{ url_for('main.op_management') }}" class="block px-4 py-2 text-blue-600 hover:bg-gray-100 {% if request.endpoint == 'main.op_management' %}bg-gray-100 font-bold{% endif %}">OP Management</a></li>
+        <li><a href="{{ url_for('main.patients') }}" class="block px-4 py-2 text-blue-600 hover:bg-gray-100 {% if request.endpoint == 'main.patients' %}bg-gray-100 font-bold{% endif %}">Patients</a></li>
+        <li><a href="{{ url_for('main.inpatient_management') }}" class="block px-4 py-2 text-blue-600 hover:bg-gray-100 {% if request.endpoint == 'main.inpatient_management' %}bg-gray-100 font-bold{% endif %}">In-Patients</a></li>
+        <li><a href="{{ url_for('main.discharge') }}" class="block px-4 py-2 text-blue-600 hover:bg-gray-100 {% if request.endpoint == 'main.discharge' %}bg-gray-100 font-bold{% endif %}">Discharge</a></li>
+        <li><a href="{{ url_for('main.insurance') }}" class="block px-4 py-2 text-blue-600 hover:bg-gray-100 {% if request.endpoint == 'main.insurance' %}bg-gray-100 font-bold{% endif %}">Insurance</a></li>
+        <li><a href="{{ url_for('main.treatment') }}" class="block px-4 py-2 text-blue-600 hover:bg-gray-100 {% if request.endpoint == 'main.treatment' %}bg-gray-100 font-bold{% endif %}">Treatment</a></li>
+    </ul>
+</div>

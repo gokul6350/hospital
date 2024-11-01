@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex">
+    <!-- Sidebar -->
+    {% include 'patient_management_sidebar.html' %}
+
+    <!-- Main Content -->
+    <div class="flex-1 p-8 overflow-auto">
+        <h1 class="text-2xl font-bold mb-6">Patient Management</h1>
+        
+        <div class="flex items-center mb-6">
+            <button onclick="openPatientFormModal('add')" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-4">
+                Add Patient
+            </button>
+         <!--   <h1 class="text-2xl font-bold">Patients</h1> -->
+        </div>
+
+        <!-- Filters -->
+        <form id="filterForm" class="mb-6">
+            <div class="flex space-x-4 mb-4">
+                <div>
+                    <label class="block mb-2 font-semibold">Sex</label>
+                    <div class="space-x-2">
+                        <label><input type="checkbox" name="sex" value="male"> Male</label>
+                        <label><input type="checkbox" name="sex" value="female"> Female</label>
+                        <label><input type="checkbox" name="sex" value="other"> Other</label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-2 font-semibold">Marital Status</label>
+                    <div class="space-x-2">
+                        <label><input type="checkbox" name="marital_status" value="single"> Single</label>
+                        <label><input type="checkbox" name="marital_status" value="married"> Married</label>
+                        <label><input type="checkbox" name="marital_status" value="divorced"> Divorced</label>
+                        <label><input type="checkbox" name="marital_status" value="widowed"> Widowed</label>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-4">
+                <input type="text" id="patientSearch" name="search" placeholder="Search patients..." class="border p-2 rounded">
+                <input type="date" name="start_date" class="border p-2 rounded">
+                <input type="date" name="end_date" class="border p-2 rounded">
+                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Filter</button>
+            </div>
+        </form>
+
+        <!-- Patients Table -->
+        <table class="min-w-full bg-white">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="py-2 px-4 text-left">ID</th>
+                    <th class="py-2 px-4 text-left">Name</th>
+                    <th class="py-2 px-4 text-left">Phone</th>
+                    <th class="py-2 px-4 text-left">Sex</th>
+                    <th class="py-2 px-4 text-left">Age</th>
+                    <th class="py-2 px-4 text-left">Address</th>
+                    <th class="py-2 px-4 text-left">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="patientsTableBody">
+                {% for patient in patients %}
+                <tr>
+                    <td class="py-2 px-4">{{ patient.id }}</td>
+                    <td class="py-2 px-4">
+                        <div class="relative group">
+                            <a href="#" onclick="openPatientDetailsModal({{ patient.id }}); return false;" class="text-blue-500 hover:underline">
+                                {{ patient.firstname }} {{ patient.lastname }}
+                            </a>
+                            <div class="hidden group-hover:block absolute z-10 bg-white border rounded p-2 shadow-lg">
+                                <button onclick="viewDetails({{ patient.id }})" class="block w-full text-left py-1 px-2 hover:bg-gray-100">View Details</button>
+                                <button onclick="printReport({{ patient.id }})" class="block w-full text-left py-1 px-2 hover:bg-gray-100">Print Report</button>
+                                <button onclick="admitPatient({{ patient.id }})" class="block w-full text-left py-1 px-2 hover:bg-gray-100">Admit Patient</button>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-2 px-4">{{ patient.mobile }}</td>
+                    <td class="py-2 px-4">{{ patient.sex }}</td>
+                    <td class="py-2 px-4">{{ patient.age }}</td>
+                    <td class="py-2 px-4">{{ patient.address }}</td>
+                    <td class="py-2 px-4">
+                        <button onclick="deletePatient({{ patient.id }})" class="text-red-500 hover:text-red-700">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Include the patient details modal -->
+{% include 'patient_details_modal.html' %}
+
+<!-- Add this new modal for adding/editing patients -->
+<div id="patientFormModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+        <h3 id="patientFormModalTitle" class="text-lg font-medium leading-6 text-gray-900 mb-4">📋 Add New Patient</h3>
+        <form id="patientForm">
+            <input type="hidden" id="patientId" name="id">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="firstname" class="block text-sm font-medium text-gray-700">👤 First Name</label>
+                    <input type="text" id="firstname" name="firstname" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="lastname" class="block text-sm font-medium text-gray-700">👤 Last Name</label>
+                    <input type="text" id="lastname" name="lastname" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="mobile" class="block text-sm font-medium text-gray-700">📱 Mobile</label>
+                    <input type="tel" id="mobile" name="mobile" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="alternate_mobile" class="block text-sm font-medium text-gray-700">📞 Alternate Mobile</label>
+                    <input type="tel" id="alternate_mobile" name="alternate_mobile" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">✉️ Email</label>
+                    <input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="sex" class="block text-sm font-medium text-gray-700">⚧ Sex</label>
+                    <select id="sex" name="sex" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="age" class="block text-sm font-medium text-gray-700">🎂 Age</label>
+                    <input type="number" id="age" name="age" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="marital_status" class="block text-sm font-medium text-gray-700">💍 Marital Status</label>
+                    <select id="marital_status" name="marital_status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                        <option value="single">Single</option>
+                        <option value="married">Married</option>
+                        <option value="divorced">Divorced</option>
+                        <option value="widowed">Widowed</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="occupation" class="block text-sm font-medium text-gray-700">💼 Occupation</label>
+                    <input type="text" id="occupation" name="occupation" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="blood_group" class="block text-sm font-medium text-gray-700">🩸 Blood Group</label>
+                    <select id="blood_group" name="blood_group" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                        <option value="">Select Blood Group</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="emergency_contact_person" class="block text-sm font-medium text-gray-700">🆘 Emergency Contact Person</label>
+                    <input type="text" id="emergency_contact_person" name="emergency_contact_person" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="emergency_contact_number" class="block text-sm font-medium text-gray-700">📞 Emergency Contact Number</label>
+                    <input type="tel" id="emergency_contact_number" name="emergency_contact_number" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="emergency_contact_relation" class="block text-sm font-medium text-gray-700">👥 Emergency Contact Relation</label>
+                    <input type="text" id="emergency_contact_relation" name="emergency_contact_relation" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label for="address" class="block text-sm font-medium text-gray-700">🏠 Address</label>
+                    <textarea id="address" name="address" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></textarea>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end">
+                <button type="button" onclick="closePatientFormModal()" class="bg-gray-500 text-white px-4 py-2 rounded mr-2">❌ Cancel</button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">💾 Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add this modal for admitting patients -->
+<div id="admitPatientModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <h2 class="text-xl font-semibold mb-4">Admit Patient</h2>
+        <form id="admitPatientForm" class="space-y-4">
+            <input type="hidden" id="admitPatientId" name="patient_id">
+            <div>
+                <label for="room_number" class="block mb-1">Room Number *</label>
+                <input type="text" id="room_number" name="room_number" required class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="doctor_id" class="block mb-1">Attending Doctor *</label>
+                <select id="doctor_id" name="doctor_id" required class="w-full p-2 border rounded">
+                    <option value="">Select a doctor</option>
+                    {% for doctor in doctors %}
+                        <option value="{{ doctor.id }}">{{ doctor.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="diagnosis" class="block mb-1">Diagnosis</label>
+                <textarea id="diagnosis" name="diagnosis" rows="3" class="w-full p-2 border rounded"></textarea>
+            </div>
+            <div class="flex justify-end">
+                <button type="button" onclick="closeAdmitPatientModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 mr-2">Cancel</button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Admit Patient</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openPatientFormModal(action, patient = null) {
+    const modal = document.getElementById('patientFormModal');
+    const form = document.getElementById('patientForm');
+    const title = document.getElementById('patientFormModalTitle');
+
+    if (action === 'add') {
+        title.textContent = '📋 Add New Patient';
+        form.reset();
+        form.elements['id'].value = ''; // Clear the ID field for new patients
+    } else if (action === 'edit') {
+        title.textContent = '✏️ Edit Patient';
+        fillFormWithPatientData(patient);
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closePatientFormModal() {
+    document.getElementById('patientFormModal').classList.add('hidden');
+}
+
+function deletePatient(id) {
+    if (confirm('Are you sure you want to delete this patient?')) {
+        fetch(`/patients/${id}`, { 
+            method: 'DELETE',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadPatients();
+            } else {
+                alert('Error deleting patient: ' + data.message);
+            }
+        });
+    }
+}
+
+function loadPatients() {
+    const formData = new FormData(document.getElementById('filterForm'));
+    const params = new URLSearchParams(formData);
+
+    fetch(`/patients?${params.toString()}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const tbody = document.getElementById('patientsTableBody');
+        tbody.innerHTML = '';
+        data.forEach(patient => {
+            const row = `
+                <tr>
+                    <td class="py-2 px-4">${patient.id}</td>
+                    <td class="py-2 px-4">
+                        <div class="relative group">
+                            <a href="#" onclick="openPatientDetailsModal(${patient.id}); return false;" class="text-blue-500 hover:underline">
+                                ${patient.firstname} ${patient.lastname}
+                            </a>
+                            <div class="hidden group-hover:block absolute z-10 bg-white border rounded p-2 shadow-lg">
+                                <button onclick="viewDetails(${patient.id})" class="block w-full text-left py-1 px-2 hover:bg-gray-100">View Details</button>
+                                <button onclick="printReport(${patient.id})" class="block w-full text-left py-1 px-2 hover:bg-gray-100">Print Report</button>
+                                <button onclick="admitPatient(${patient.id})" class="block w-full text-left py-1 px-2 hover:bg-gray-100">Admit Patient</button>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-2 px-4">${patient.mobile}</td>
+                    <td class="py-2 px-4">${patient.sex || ''}</td>
+                    <td class="py-2 px-4">${patient.age || ''}</td>
+                    <td class="py-2 px-4">${patient.address || ''}</td>
+                    <td class="py-2 px-4">
+                        <button onclick="deletePatient(${patient.id})" class="text-red-500 hover:text-red-700">Delete</button>
+                    </td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+    });
+}
+
+// Add event listener for real-time search
+document.getElementById('patientSearch').addEventListener('input', function() {
+    // Use a debounce function to prevent too many requests
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+        loadPatients();
+    }, 300); // Wait for 300ms after the user stops typing
+});
+
+document.getElementById('filterForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    loadPatients();
+});
+document.getElementById('patientForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const patientId = formData.get('id');
+    const method = patientId ? 'PUT' : 'POST';
+    const url = patientId ? `/patients/${patientId}` : '/patients';
+
+    fetch(url, {
+        method: method,
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closePatientFormModal();
+            loadPatients();
+        } else {
+            alert('Error saving patient: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while saving the patient.');
+    });
+});
+
+function fillFormWithPatientData(patient) {
+    const form = document.getElementById('patientForm');
+    for (const key in patient) {
+        if (form.elements[key]) {
+            form.elements[key].value = patient[key] || '';
+        }
+    }
+}
+
+function viewDetails(patientId) {
+    openPatientDetailsModal(patientId);
+}
+
+function printReport(patientId) {
+    console.log('Downloading report for patient:', patientId);
+    
+    // ------------------------------------------------------------------------
+    // Fetch the patient report
+    // ------------------------------------------------------------------------
+    fetch(`/generate-patient-report/${patientId}`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.blob();
+    })
+    .then(blob => {
+        // --------------------------------------------------------------------
+        // Create and trigger download
+        // --------------------------------------------------------------------
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `patient_report_${patientId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // --------------------------------------------------------------------
+        // Clean up
+        // --------------------------------------------------------------------
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error generating patient report: ' + error.message);
+    });
+}
+
+function admitPatient(patientId) {
+    document.getElementById('admitPatientId').value = patientId;
+    document.getElementById('admitPatientModal').classList.remove('hidden');
+}
+
+function closeAdmitPatientModal() {
+    document.getElementById('admitPatientModal').classList.add('hidden');
+    document.getElementById('admitPatientForm').reset();
+}
+
+document.getElementById('admitPatientForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const patientId = formData.get('patient_id');
+
+    fetch(`/admit-inpatient/${patientId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeAdmitPatientModal();
+            alert('Patient admitted successfully');
+            // Optionally, you can redirect to the inpatient management page
+            // window.location.href = '/inpatient-management';
+        } else {
+            alert('Error admitting patient: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while admitting the patient.');
+    });
+});
+
+// Add event listeners for other filter inputs
+document.querySelectorAll('#filterForm input[type="checkbox"], #filterForm input[type="date"]').forEach(input => {
+    input.addEventListener('change', loadPatients);
+});
+
+// Load patients when the page loads
+loadPatients();
+</script>
+{% endblock %}

@@ -1,0 +1,601 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex">
+    <!-- Sidebar -->
+    {% include 'patient_management_sidebar.html' %}
+
+    <!-- Main Content -->
+    <div class="flex-1 p-8 overflow-auto">
+        <h1 class="text-2xl font-bold mb-6">OP Management</h1>
+        
+        <!-- Replace the existing Add OP Record Button with this new button -->
+        <div class="flex items-center mb-6">
+            <button id="addPatientAndOPBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mr-4">
+                Add New Patient & OP
+            </button>
+            <button id="addOPRecordBtn" class="bg-green-500 text-white p-2 rounded-full hover:bg-green-600" title="Add OP for Existing Patient">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Filters -->
+        <form id="filterForm" class="mb-6">
+            <div class="flex space-x-4 mb-4">
+                <div>
+                    <label class="block mb-2 font-semibold">Status</label>
+                    <div class="space-x-2">
+                        <label><input type="checkbox" name="status" value="Open"> Open</label>
+                        <label><input type="checkbox" name="status" value="Closed"> Closed</label>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-4">
+                <input type="text" id="opSearch" name="search" placeholder="Search OP records..." class="border p-2 rounded">
+                <input type="date" name="start_date" class="border p-2 rounded">
+                <input type="date" name="end_date" class="border p-2 rounded">
+                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Filter</button>
+            </div>
+        </form>
+        
+        <!-- OP Records List -->
+        <div>
+            <h2 class="text-xl font-semibold mb-4">OP Records List</h2>
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="py-2 px-4 text-left">ID</th>
+                        <th class="py-2 px-4 text-left">Patient Name</th>
+                        <th class="py-2 px-4 text-left">Phone</th>
+                        <th class="py-2 px-4 text-left">Doctor</th>
+                        <th class="py-2 px-4 text-left">Visit Date</th>
+                        <th class="py-2 px-4 text-left">Reason</th>
+                        <th class="py-2 px-4 text-left">Status</th>
+                        <th class="py-2 px-4 text-left">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="opRecordsTableBody">
+                    <!-- OP Records will be loaded here dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- OP Record Modal -->
+<div id="opRecordModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <h2 class="text-xl font-semibold mb-4">Add New OP Record</h2>
+        <form id="opRecordForm" class="space-y-4">
+            <input type="hidden" id="opRecordId" name="id">
+            <div>
+                <label for="patient_search" class="block mb-1">Patient *</label>
+                <div class="autocomplete w-full">
+                    <input id="patient_search" type="text" name="patient_search" placeholder="Search for a patient..." class="w-full p-2 border rounded">
+                    <input type="hidden" id="patient_id" name="patient_id" required>
+                </div>
+            </div>
+            <div>
+                <label for="doctor_id" class="block mb-1">Doctor *</label>
+                <select id="doctor_id" name="doctor_id" required class="w-full p-2 border rounded">
+                    <option value="">Select a doctor</option>
+                    {% for doctor in doctors %}
+                        <option value="{{ doctor.id }}">{{ doctor.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="visit_date" class="block mb-1">Visit Date *</label>
+                <input type="date" id="visit_date" name="visit_date" required class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="reason" class="block mb-1">Reason for Visit</label>
+                <textarea id="reason" name="reason" rows="3" class="w-full p-2 border rounded"></textarea>
+            </div>
+            <div>
+                <label for="status" class="block mb-1">Status *</label>
+                <select id="status" name="status" required class="w-full p-2 border rounded">
+                    <option value="">Select status</option>
+                    <option value="Open">Open</option>
+                    <option value="Closed">Closed</option>
+                    <!-- Add other statuses as needed -->
+                </select>
+            </div>
+            <div class="flex justify-end">
+                <button type="button" id="cancelOPRecord" class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 mr-2">Cancel</button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save OP Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Replace the existing patientAndOPModal content with this updated version -->
+<div id="patientAndOPModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <h2 class="text-2xl font-semibold mb-4">Add New Patient & OP Record</h2>
+        <form id="patientAndOPForm" class="space-y-4">
+            <!-- Patient Information Section -->
+            <div class="border-b pb-4 mb-4">
+                <h3 class="text-xl font-semibold mb-2">Patient Information</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="firstname" class="block text-sm font-medium text-gray-700">First Name *</label>
+                        <input type="text" id="firstname" name="firstname" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="lastname" class="block text-sm font-medium text-gray-700">Last Name *</label>
+                        <input type="text" id="lastname" name="lastname" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="mobile" class="block text-sm font-medium text-gray-700">Mobile *</label>
+                        <input type="tel" id="mobile" name="mobile" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="alternate_mobile" class="block text-sm font-medium text-gray-700">Alternate Mobile</label>
+                        <input type="tel" id="alternate_mobile" name="alternate_mobile" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                        <input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="sex" class="block text-sm font-medium text-gray-700">Sex *</label>
+                        <select id="sex" name="sex" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                            <option value="">Select sex</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="age" class="block text-sm font-medium text-gray-700">Age *</label>
+                        <input type="number" id="age" name="age" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="address" class="block text-sm font-medium text-gray-700">Address</label>
+                        <textarea id="address" name="address" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- OP Record Section -->
+            <div>
+                <h3 class="text-xl font-semibold mb-2">OP Record Information</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="doctor_id" class="block text-sm font-medium text-gray-700">Doctor *</label>
+                        <select id="doctor_id" name="doctor_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                            <option value="">Select a doctor</option>
+                            {% for doctor in doctors %}
+                                <option value="{{ doctor.id }}">{{ doctor.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="visit_date" class="block text-sm font-medium text-gray-700">Visit Date *</label>
+                        <input type="date" id="visit_date" name="visit_date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="reason" class="block text-sm font-medium text-gray-700">Reason for Visit</label>
+                        <textarea id="reason" name="reason" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></textarea>
+                    </div>
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700">Status *</label>
+                        <select id="status" name="status" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                            <option value="">Select status</option>
+                            <option value="Open">Open</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end">
+                <button type="button" onclick="closePatientAndOPModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 mr-2">Cancel</button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save Patient & OP Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.autocomplete {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.autocomplete-items {
+  position: absolute;
+  border: 1px solid #d4d4d4;
+  border-top: none;
+  z-index: 99;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.autocomplete-items div {
+  padding: 10px;
+  cursor: pointer;
+  background-color: #fff; 
+  border-bottom: 1px solid #d4d4d4; 
+}
+
+.autocomplete-items div:hover {
+  background-color: #e9e9e9; 
+}
+
+.autocomplete-active {
+  background-color: #3b82f6 !important; 
+  color: #ffffff; 
+}
+
+/* Add these new styles to match your UI */
+#patient_search {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+#patient_search:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+</style>
+
+<script>
+function loadOPRecords() {
+    const formData = new FormData(document.getElementById('filterForm'));
+    const params = new URLSearchParams(formData);
+
+    // Handle checkbox values for status
+    const statusCheckboxes = document.querySelectorAll('input[name="status"]:checked');
+    statusCheckboxes.forEach(checkbox => {
+        params.append('status', checkbox.value);
+    });
+
+    fetch(`/op-management?${params.toString()}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(op_records => {
+        const tbody = document.getElementById('opRecordsTableBody');
+        tbody.innerHTML = '';
+        op_records.forEach(record => {
+            const formattedDate = new Date(record.visit_date).toLocaleString('en-US', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }).toUpperCase();
+
+            const row = `
+                <tr>
+                    <td class="py-2 px-4">${record.op_id}</td>
+                    <td class="py-2 px-4">
+                        <a href="#" onclick="openPatientDetailsModal(${record.patient_id}); return false;" class="text-blue-500 hover:underline">
+                            ${record.patient_name}
+                        </a>
+                    </td>
+                    <td class="py-2 px-4">${record.phone}</td>
+                    <td class="py-2 px-4">${record.doctor_name}</td>
+                    <td class="py-2 px-4">${formattedDate}</td>
+                    <td class="py-2 px-4">${record.reason || ''}</td>
+                    <td class="py-2 px-4">
+                        <select onchange="updateStatus(${record.id}, this.value)" class="border rounded p-1">
+                            <option value="Open" ${record.status === 'Open' ? 'selected' : ''}>Open</option>
+                            <option value="Closed" ${record.status === 'Closed' ? 'selected' : ''}>Closed</option>
+                        </select>
+                    </td>
+                    <td class="py-2 px-4">
+                        <button onclick="editOPRecord(${record.id})" class="text-blue-500 hover:text-blue-700 mr-2">Edit</button>
+                        <button onclick="deleteOPRecord(${record.id})" class="text-red-500 hover:text-red-700">Delete</button>
+                    </td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+    });
+}
+
+// Add this new function to handle status updates
+function updateStatus(id, newStatus) {
+    fetch(`/op-management/${id}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            console.log('Status updated successfully');
+        } else {
+            throw new Error(data.message || 'Unknown error occurred');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating status:', error);
+        alert('Error updating status: ' + error.message);
+        loadOPRecords();  // Reload the records to revert the change in the UI
+    });
+}
+
+document.getElementById('addOPRecordBtn').addEventListener('click', function() {
+    document.getElementById('opRecordForm').reset();  // Reset the form
+    document.getElementById('opRecordId').value = '';  // Clear the id field
+    document.querySelector('#opRecordModal h2').textContent = 'Add New OP Record';  // Set modal title
+    document.getElementById('opRecordModal').classList.remove('hidden');
+});
+
+document.getElementById('cancelOPRecord').addEventListener('click', function() {
+    document.getElementById('opRecordModal').classList.add('hidden');
+    document.getElementById('opRecordForm').reset();  // Reset the form when canceling
+});
+
+document.getElementById('opRecordForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const opRecordId = formData.get('id');
+    const method = opRecordId ? 'PUT' : 'POST';
+    const url = '/op-management' + (opRecordId ? `/${opRecordId}` : '');
+
+    fetch(url, {
+        method: method,
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.reset();  // Reset the form
+            document.getElementById('opRecordId').value = '';  // Clear the id field
+            loadOPRecords();
+            document.getElementById('opRecordModal').classList.add('hidden');
+        } else {
+            alert('Error saving OP record: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving OP record: ' + error.message);
+    });
+});
+
+function editOPRecord(id) {
+    fetch(`/op-management/${id}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(record => {
+        const form = document.getElementById('opRecordForm');
+        form.reset();  // Reset the form before populating
+        form.id.value = record.id;
+        form.patient_id.value = record.patient_id;
+        form.doctor_id.value = record.doctor_id;
+        form.visit_date.value = record.visit_date;
+        form.reason.value = record.reason;
+        form.status.value = record.status;
+        document.querySelector('#opRecordModal h2').textContent = 'Edit OP Record';  // Set modal title
+        document.getElementById('opRecordModal').classList.remove('hidden');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error loading OP record: ' + error.message);
+    });
+}
+
+function deleteOPRecord(id) {
+    if (confirm('Are you sure you want to delete this OP record?')) {
+        fetch(`/op-management/${id}`, { 
+            method: 'DELETE',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadOPRecords();
+            } else {
+                alert('Error deleting OP record: ' + data.message);
+            }
+        });
+    }
+}
+
+// Add event listener for the filter form
+document.getElementById('filterForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    loadOPRecords();
+});
+
+// Load OP records when the page loads
+loadOPRecords();
+
+function autocomplete(inp, arr) {
+    var currentFocus;
+    inp.addEventListener("input", function(e) {
+        var a, b, i, val = this.value;
+        closeAllLists();
+        if (!val) { return false;}
+        currentFocus = -1;
+        a = document.createElement("DIV");
+        a.setAttribute("id", this.id + "autocomplete-list");
+        a.setAttribute("class", "autocomplete-items");
+        this.parentNode.appendChild(a);
+        
+        fetch(`/search-patients?q=${encodeURIComponent(val)}`)
+            .then(response => response.json())
+            .then(patients => {
+                for (i = 0; i < patients.length; i++) {
+                    b = document.createElement("DIV");
+                    b.innerHTML = "<strong>" + patients[i].firstname + " " + patients[i].lastname + "</strong>";
+                    b.innerHTML += "<input type='hidden' value='" + patients[i].id + "'>";
+                    b.addEventListener("click", function(e) {
+                        inp.value = this.getElementsByTagName("strong")[0].innerText;
+                        document.getElementById("patient_id").value = this.getElementsByTagName("input")[0].value;
+                        closeAllLists();
+                    });
+                    a.appendChild(b);
+                }
+            });
+    });
+    
+    inp.addEventListener("keydown", function(e) {
+        var x = document.getElementById(this.id + "autocomplete-list");
+        if (x) x = x.getElementsByTagName("div");
+        if (e.keyCode == 40) {
+            currentFocus++;
+            addActive(x);
+        } else if (e.keyCode == 38) {
+            currentFocus--;
+            addActive(x);
+        } else if (e.keyCode == 13) {
+            e.preventDefault();
+            if (currentFocus > -1) {
+                if (x) x[currentFocus].click();
+            }
+        }
+    });
+    
+    function addActive(x) {
+        if (!x) return false;
+        removeActive(x);
+        if (currentFocus >= x.length) currentFocus = 0;
+        if (currentFocus < 0) currentFocus = (x.length - 1);
+        x[currentFocus].classList.add("autocomplete-active");
+    }
+    
+    function removeActive(x) {
+        for (var i = 0; i < x.length; i++) {
+            x[i].classList.remove("autocomplete-active");
+        }
+    }
+    
+    function closeAllLists(elmnt) {
+        var x = document.getElementsByClassName("autocomplete-items");
+        for (var i = 0; i < x.length; i++) {
+            if (elmnt != x[i] && elmnt != inp) {
+                x[i].parentNode.removeChild(x[i]);
+            }
+        }
+    }
+    
+    document.addEventListener("click", function (e) {
+        closeAllLists(e.target);
+    });
+}
+
+autocomplete(document.getElementById("patient_search"));
+
+function openPatientDetailsModal(patientId) {
+    // Show loading indicator
+    document.getElementById('patientDetailsContent').innerHTML = '<p class="text-center">Loading...</p>';
+    document.getElementById('patientDetailsModal').classList.remove('hidden');
+
+    fetch(`/patients/${patientId}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(patient => {
+        currentPatient = patient;
+        const content = `
+            <!-- Patient details HTML -->
+        `;
+        document.getElementById('patientDetailsContent').innerHTML = content;
+        document.getElementById('patientEditForm').classList.add('hidden');
+        document.getElementById('modalButtons').classList.remove('hidden');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('patientDetailsContent').innerHTML = '<p class="text-center text-red-500">An error occurred while fetching patient details.</p>';
+    });
+}
+
+// Add event listener for real-time search
+document.getElementById('opSearch').addEventListener('input', function() {
+    // Use a debounce function to prevent too many requests
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+        loadOPRecords();
+    }, 300); // Wait for 300ms after the user stops typing
+});
+
+// Remove the submit event listener for the filter form
+// document.getElementById('filterForm').removeEventListener('submit', loadOPRecords);
+
+// Add event listeners for other filter inputs
+document.querySelectorAll('#filterForm input[type="checkbox"], #filterForm input[type="date"]').forEach(input => {
+    input.addEventListener('change', loadOPRecords);
+});
+
+document.getElementById('addPatientAndOPBtn').addEventListener('click', function() {
+    document.getElementById('patientAndOPForm').reset();
+    document.getElementById('patientAndOPModal').classList.remove('hidden');
+});
+
+function closePatientAndOPModal() {
+    document.getElementById('patientAndOPModal').classList.add('hidden');
+    document.getElementById('patientAndOPForm').reset();
+}
+
+document.getElementById('patientAndOPForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    fetch('/add-patient-and-op', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.reset();
+            loadOPRecords();
+            document.getElementById('patientAndOPModal').classList.add('hidden');
+            alert('Patient and OP record added successfully');
+        } else {
+            alert('Error saving patient and OP record: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving patient and OP record: ' + error.message);
+    });
+});
+</script>
+
+<!-- Include the patient details modal -->
+{% include 'patient_details_modal.html' %}
+
+{% endblock %}

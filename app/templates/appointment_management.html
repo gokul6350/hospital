@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex">
+    <!-- Sidebar -->
+    {% include 'patient_management_sidebar.html' %}
+
+    <!-- Main Content -->
+    <div class="flex-1 p-8 overflow-auto">
+        <h1 class="text-2xl font-bold mb-6">Appointment Management</h1>
+        
+        <!-- Book Appointment Button -->
+        <button id="bookAppointmentBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-6">
+            Book New Appointment
+        </button>
+        
+        <!-- Appointments List -->
+        <div>
+            <h2 class="text-xl font-semibold mb-4">Appointments List</h2>
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="py-2 px-4 text-left">Patient Name</th>
+                        <th class="py-2 px-4 text-left">Mobile</th>
+                        <th class="py-2 px-4 text-left">Doctor</th>
+                        <th class="py-2 px-4 text-left">Date & Time</th>
+                        <th class="py-2 px-4 text-left">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="appointmentsTableBody">
+                    <!-- Appointments will be loaded here dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Appointment Booking Modal -->
+<div id="appointmentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <h2 class="text-xl font-semibold mb-4">Book New Appointment</h2>
+        <form id="appointmentForm" class="space-y-4">
+            <input type="hidden" id="appointmentId" name="id">
+            <div>
+                <label for="patient_name" class="block mb-1">Patient Name *</label>
+                <input type="text" id="patient_name" name="patient_name" required class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="mobile" class="block mb-1">Mobile *</label>
+                <input type="tel" id="mobile" name="mobile" required class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="doctor" class="block mb-1">Doctor *</label>
+                <select id="doctor" name="doctor" required class="w-full p-2 border rounded">
+                    <option value="">Select a doctor</option>
+                    {% for doctor in doctors %}
+                        <option value="{{ doctor.id }}">{{ doctor.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="appointment_date" class="block mb-1">Appointment Date *</label>
+                <input type="date" id="appointment_date" name="appointment_date" required class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="appointment_time" class="block mb-1">Appointment Time *</label>
+                <input type="time" id="appointment_time" name="appointment_time" required class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="reason" class="block mb-1">Reason for Appointment</label>
+                <textarea id="reason" name="reason" rows="3" class="w-full p-2 border rounded"></textarea>
+            </div>
+            <div class="flex justify-end">
+                <button type="button" id="cancelBooking" class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 mr-2">Cancel</button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Book Appointment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function loadAppointments() {
+    fetch('/appointment-management', {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(appointments => {
+        const tbody = document.getElementById('appointmentsTableBody');
+        tbody.innerHTML = '';
+        appointments.forEach(appointment => {
+            const appointmentDate = new Date(appointment.appointment_date + 'T' + appointment.appointment_time);
+            const formattedDateTime = appointmentDate.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+            
+            const row = `
+                <tr>
+                    <td class="py-2 px-4">${appointment.patient_name}</td>
+                    <td class="py-2 px-4">${appointment.mobile}</td>
+                    <td class="py-2 px-4">${appointment.doctor_name}</td>
+                    <td class="py-2 px-4">${formattedDateTime}</td>
+                    <td class="py-2 px-4">
+                        <button onclick="editAppointment(${appointment.id})" class="text-blue-500 hover:text-blue-700 mr-2">Edit</button>
+                        <button onclick="deleteAppointment(${appointment.id})" class="text-red-500 hover:text-red-700">Delete</button>
+                    </td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+    });
+}
+
+document.getElementById('bookAppointmentBtn').addEventListener('click', function() {
+    document.getElementById('appointmentModal').classList.remove('hidden');
+});
+
+document.getElementById('cancelBooking').addEventListener('click', function() {
+    document.getElementById('appointmentModal').classList.add('hidden');
+    document.getElementById('appointmentForm').reset();
+});
+
+document.getElementById('appointmentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const appointmentId = formData.get('id');
+    const method = appointmentId ? 'PUT' : 'POST';
+    const url = '/appointment-management' + (appointmentId ? `/${appointmentId}` : '');
+
+    fetch(url, {
+        method: method,
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.reset();
+            loadAppointments();
+            document.getElementById('appointmentModal').classList.add('hidden');
+        } else {
+            alert('Error saving appointment');
+        }
+    });
+});
+
+function editAppointment(id) {
+    fetch(`/appointment-management/${id}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(appointment => {
+        const form = document.getElementById('appointmentForm');
+        form.id.value = appointment.id;
+        form.patient_name.value = appointment.patient_name;
+        form.mobile.value = appointment.mobile;
+        form.doctor.value = appointment.doctor_id;
+        form.appointment_date.value = appointment.appointment_date;
+        form.appointment_time.value = appointment.appointment_time;
+        form.reason.value = appointment.reason;
+        document.getElementById('appointmentModal').classList.remove('hidden');
+    });
+}
+
+function deleteAppointment(id) {
+    if (confirm('Are you sure you want to delete this appointment?')) {
+        fetch(`/appointment-management/${id}`, { 
+            method: 'DELETE',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadAppointments();
+            } else {
+                alert('Error deleting appointment: ' + data.message);
+            }
+        });
+    }
+}
+
+// Load appointments when the page loads
+loadAppointments();
+</script>
+{% endblock %}

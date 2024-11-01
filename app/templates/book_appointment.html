@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex">
+    <!-- Sidebar -->
+    {% include 'patient_management_sidebar.html' %}
+
+    <!-- Main Content -->
+    <div class="flex-1 p-8 overflow-auto">
+        <h1 class="text-2xl font-bold mb-6">Book Appointment</h1>
+        
+        <!-- Search Bar -->
+        <div class="mb-6">
+            <input type="text" placeholder="Search with mobile number" class="w-full p-2 border rounded-md">
+        </div>
+
+        <!-- Appointment Booking Form -->
+        <form method="POST" class="space-y-6">
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <label for="patient_name" class="block mb-2">Patient Name *</label>
+                    <input type="text" id="patient_name" name="patient_name" required class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label for="mobile" class="block mb-2">Mobile *</label>
+                    <input type="tel" id="mobile" name="mobile" required class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label for="doctor" class="block mb-2">Doctor *</label>
+                    <select id="doctor" name="doctor" required class="w-full p-2 border rounded">
+                        <option value="">Select a doctor</option>
+                        <!-- Add doctor options here -->
+                    </select>
+                </div>
+                <div>
+                    <label for="department" class="block mb-2">Department *</label>
+                    <select id="department" name="department" required class="w-full p-2 border rounded">
+                        <option value="">Select a department</option>
+                        <!-- Add department options here -->
+                    </select>
+                </div>
+                <div>
+                    <label for="appointment_date" class="block mb-2">Appointment Date *</label>
+                    <input type="date" id="appointment_date" name="appointment_date" required class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label for="appointment_time" class="block mb-2">Appointment Time *</label>
+                    <input type="time" id="appointment_time" name="appointment_time" required class="w-full p-2 border rounded">
+                </div>
+                <div class="col-span-2">
+                    <label for="reason" class="block mb-2">Reason for Appointment</label>
+                    <textarea id="reason" name="reason" rows="3" class="w-full p-2 border rounded"></textarea>
+                </div>
+            </div>
+
+            <div>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Book Appointment</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Life Line Hospital{% endblock %}
+
+{% block content %}
+<main class="flex-1 p-6 bg-gray-100">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Statistics Cards -->
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500">Patients</h3>
+            <p class="text-xl font-bold">12/107</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500">Outpatients</h3>
+            <p class="text-xl font-bold">12/107</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500">Inpatients</h3>
+            <p class="text-xl font-bold">0/0</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500">Appointments</h3>
+            <p class="text-xl font-bold">0/0</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500">Doctors</h3>
+            <p class="text-xl font-bold">1</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500">Staff</h3>
+            <p class="text-xl font-bold">1</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500">Revenue</h3>
+            <p class="text-xl font-bold">4.8K</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500">Discharges</h3>
+            <p class="text-xl font-bold">NA</p>
+        </div>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- OPs by Gender Chart -->
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500 mb-2">OPs by gender</h3>
+            <div class="flex justify-center">
+                <!-- Replace this with your actual chart component -->
+                <div class="w-32 h-32 bg-gray-200 rounded-full flex items-center justify-center">
+                    <span class="text-sm">Chart Placeholder</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- IPs by Gender Chart -->
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm text-gray-500 mb-2">IPs by gender</h3>
+            <div class="flex justify-center">
+                <!-- Replace this with your actual chart component -->
+                <div class="w-32 h-32 bg-gray-200 rounded-full flex items-center justify-center">
+                    <span class="text-sm">Chart Placeholder</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

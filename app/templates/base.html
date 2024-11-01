@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Life Line Hospital{% endblock %}</title>
+    <!-- Add this line for the favicon -->
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='logo.jpg') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-100">
+    <div class="flex min-h-screen">
+        <!-- Main Content -->
+        <div class="flex flex-col flex-1">
+            <!-- Top Bar -->
+            <header class="bg-white border-b border-gray-200 px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <h1 class="text-2xl font-bold text-indigo-800 mr-6">Life Line Hospital</h1>
+                        <!-- Services Dropdown -->
+                        <nav x-data="{ open: false }" class="relative">
+                            <button @click="open = !open" class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 rounded">
+                                <span class="mr-1">Services</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div x-show="open" @click.away="open = false" class="absolute left-0 mt-2 bg-white rounded-md shadow-lg z-10 w-max">
+                                <div class="grid grid-cols-7 gap-4 p-4">
+                                    <div>
+                                        <h3 class="font-bold mb-2">Dashboard</h3>
+                                        <a href="{{ url_for('main.index') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Dashboard</a>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold mb-2">Patient Management</h3>
+                                        
+                                        <a href="{{ url_for('main.appointment_management') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Appointment Management</a>
+                                        <a href="{{ url_for('main.op_management') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">OP Management</a>
+                                        <a href="{{ url_for('main.patients') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Patients</a>
+                                        <a href="{{ url_for('main.inpatient_management') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">In-Patients</a>
+                                        <a href="{{ url_for('main.discharge') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Discharge</a>
+                                        <a href="{{ url_for('main.insurance') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Insurance</a>
+                                        <a href="{{ url_for('main.treatment') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Treatment</a>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold mb-2">Staff Management</h3>
+                                        <a href="{{ url_for('main.doctors') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Doctors</a>
+                                
+                                        <a href="{{ url_for('main.staff') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Staff</a>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold mb-2">Pharmacy</h3>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Medicines</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Stock</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Orders</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Suppliers</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Medicine Sale</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Sold Out Medicines</a>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold mb-2">Diagnosis</h3>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Book Test</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Reports</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Tests</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Test Categories</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Test Group</a>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold mb-2">Billing and Finance</h3>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Transactions</a>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold mb-2">Settings</h3>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Administration</a>
+                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Reports</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </nav>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="relative mr-4">
+                            <button class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-bell"></i>
+                                <span class="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1">1</span>
+                            </button>
+                        </div>
+                        <!-- Add this new button for the database editor -->
+                        <a href="{{ url_for('main.database_editor') }}" class="text-gray-500 hover:text-gray-700 mr-4">
+                            <i class="fas fa-database text-xl"></i>
+                        </a>
+                        <div class="relative">
+                            <button class="flex items-center text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-user-circle text-2xl mr-2"></i>
+                                <span>Life Line Hospital</span>
+                            </button>
+                            <div class="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md py-2 hidden">
+                                <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Profile</a>
+                                <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Display Settings</a>
+                                <a href="#" class="block px-4 py-2 text-red-600 hover:bg-gray-100">Logout</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Block -->
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

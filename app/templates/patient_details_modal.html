@@ -1,0 +1,218 @@
+<!-- Patient Details Modal -->
+<div id="patientDetailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+    <div class="relative top-10 mx-auto p-8 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <h3 class="text-3xl font-bold leading-6 text-gray-900 mb-6">Patient Details</h3>
+        <div id="patientDetailsContent" class="mb-6"></div>
+        <div id="patientEditForm" class="hidden">
+            <form id="editPatientForm">
+                <input type="hidden" id="editPatientId" name="id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="editFirstname" class="block text-sm font-medium text-gray-700">First Name</label>
+                        <input type="text" id="editFirstname" name="firstname" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editLastname" class="block text-sm font-medium text-gray-700">Last Name</label>
+                        <input type="text" id="editLastname" name="lastname" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editMobile" class="block text-sm font-medium text-gray-700">Mobile</label>
+                        <input type="text" id="editMobile" name="mobile" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editAlternateMobile" class="block text-sm font-medium text-gray-700">Alt. Mobile</label>
+                        <input type="text" id="editAlternateMobile" name="alternate_mobile" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                        <input type="email" id="editEmail" name="email" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editSex" class="block text-sm font-medium text-gray-700">Sex</label>
+                        <select id="editSex" name="sex" class="mt-1 block w-full border rounded-md shadow-sm">
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editAge" class="block text-sm font-medium text-gray-700">Age</label>
+                        <input type="number" id="editAge" name="age" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editMaritalStatus" class="block text-sm font-medium text-gray-700">💍 Marital Status</label>
+                        <select id="editMaritalStatus" name="marital_status" class="mt-1 block w-full border rounded-md shadow-sm">
+                            <option value="single">Single</option>
+                            <option value="married">Married</option>
+                            <option value="divorced">Divorced</option>
+                            <option value="widowed">Widowed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editOccupation" class="block text-sm font-medium text-gray-700">Occupation</label>
+                        <input type="text" id="editOccupation" name="occupation" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editBloodGroup" class="block text-sm font-medium text-gray-700">Blood Group</label>
+                        <input type="text" id="editBloodGroup" name="blood_group" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editEmergencyContact" class="block text-sm font-medium text-gray-700">Emergency Contact</label>
+                        <input type="text" id="editEmergencyContact" name="emergency_contact_person" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editEmergencyNumber" class="block text-sm font-medium text-gray-700">Emergency Number</label>
+                        <input type="text" id="editEmergencyNumber" name="emergency_contact_number" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="editEmergencyRelation" class="block text-sm font-medium text-gray-700">Emergency Relation</label>
+                        <input type="text" id="editEmergencyRelation" name="emergency_contact_relation" class="mt-1 block w-full border rounded-md shadow-sm">
+                    </div>
+                    <div class="col-span-2">
+                        <label for="editAddress" class="block text-sm font-medium text-gray-700">🏠 Address</label>
+                        <textarea id="editAddress" name="address" rows="3" class="mt-1 block w-full border rounded-md shadow-sm"></textarea>
+                    </div>
+                </div>
+                <div id="formErrors" class="text-red-500 mt-2"></div>
+                <div class="mt-4">
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Save Changes</button>
+                    <button type="button" onclick="cancelEdit()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded ml-2">Cancel</button>
+                </div>
+            </form>
+        </div>
+        <div class="mt-4 flex justify-end" id="modalButtons">
+            <button onclick="editPatient()" class="bg-yellow-500 text-white px-4 py-2 rounded mr-2">Edit</button>
+            <button onclick="closePatientDetailsModal()" class="bg-blue-500 text-white px-4 py-2 rounded">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPatient = null;
+
+function openPatientDetailsModal(patientId) {
+    // Show loading indicator
+    document.getElementById('patientDetailsContent').innerHTML = '<p class="text-center">Loading...</p>';
+    document.getElementById('patientDetailsModal').classList.remove('hidden');
+
+    fetch(`/patients/${patientId}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(patient => {
+        currentPatient = patient;
+        const content = `
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">👤 ${patient.firstname} ${patient.lastname}</h2>
+                </div>
+                <div class="grid grid-cols-2 gap-6 text-lg">
+                    <div>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">📱 Mobile:</span> ${patient.mobile}</p>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">📞 Alt. Mobile:</span> ${patient.alternate_mobile || 'N/A'}</p>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">📧 Email:</span> ${patient.email || 'N/A'}</p>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">⚧ Sex:</span> ${patient.sex || 'N/A'}</p>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">🎂 Age:</span> ${patient.age || 'N/A'}</p>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">💍 Marital Status:</span> ${patient.marital_status || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">💼 Occupation:</span> ${patient.occupation || 'N/A'}</p>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">🩸 Blood Group:</span> ${patient.blood_group || 'N/A'}</p>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">🆘 Emergency Contact:</span> ${patient.emergency_contact_person || 'N/A'}</p>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">📞 Emergency Number:</span> ${patient.emergency_contact_number || 'N/A'}</p>
+                        <p class="mb-3"><span class="font-semibold text-gray-700">👥 Emergency Relation:</span> ${patient.emergency_contact_relation || 'N/A'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('patientDetailsContent').innerHTML = content;
+        document.getElementById('patientEditForm').classList.add('hidden');
+        document.getElementById('modalButtons').classList.remove('hidden');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('patientDetailsContent').innerHTML = '<p class="text-center text-red-500">An error occurred while fetching patient details.</p>';
+    });
+}
+
+function editPatient() {
+    document.getElementById('patientDetailsContent').classList.add('hidden');
+    document.getElementById('patientEditForm').classList.remove('hidden');
+    document.getElementById('modalButtons').classList.add('hidden');
+    
+    // Populate the form with current patient data
+    const form = document.getElementById('editPatientForm');
+    for (const key in currentPatient) {
+        if (form.elements[key]) {
+            form.elements[key].value = currentPatient[key] || '';
+        }
+    }
+
+    // Set the correct option for marital status
+    const maritalStatusSelect = document.getElementById('editMaritalStatus');
+    if (currentPatient.marital_status) {
+        for (let i = 0; i < maritalStatusSelect.options.length; i++) {
+            if (maritalStatusSelect.options[i].value === currentPatient.marital_status.toLowerCase()) {
+                maritalStatusSelect.selectedIndex = i;
+                break;
+            }
+        }
+    }
+}
+
+function cancelEdit() {
+    document.getElementById('patientDetailsContent').classList.remove('hidden');
+    document.getElementById('patientEditForm').classList.add('hidden');
+    document.getElementById('modalButtons').classList.remove('hidden');
+}
+
+document.getElementById('editPatientForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const patientId = formData.get('id');
+
+    fetch(`/patients/${patientId}`, {
+        method: 'PUT',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess('Patient updated successfully');
+            // Refresh the entire page
+            window.location.reload();
+        } else {
+            showError(data.message || 'Error updating patient');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('An error occurred while updating patient details.');
+    });
+});
+
+function closePatientDetailsModal() {
+    document.getElementById('patientDetailsModal').classList.add('hidden');
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('formErrors');
+    errorDiv.textContent = message;
+    errorDiv.classList.remove('hidden');
+}
+
+function showSuccess(message) {
+    const errorDiv = document.getElementById('formErrors');
+    errorDiv.textContent = message;
+    errorDiv.classList.remove('hidden');
+    errorDiv.classList.remove('text-red-500');
+    errorDiv.classList.add('text-green-500');
+}
+</script>

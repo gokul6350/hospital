@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex">
+    <!-- Sidebar -->
+    {% include 'patient_management_sidebar.html' %}
+
+    <!-- Main Content -->
+    <div class="flex-1 p-8 overflow-auto">
+        <h1 class="text-2xl font-bold mb-6">Inpatient Management</h1>
+        
+        <!-- Admit Inpatient Button -->
+        <button id="admitInpatientBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-6">
+            Admit New Inpatient
+        </button>
+        
+        <!-- Filters -->
+        <form id="filterForm" class="mb-6">
+            <div class="flex space-x-4">
+                <input type="text" id="inpatientSearch" name="search" placeholder="Search inpatients..." class="border p-2 rounded">
+                <input type="date" name="start_date" class="border p-2 rounded">
+                <input type="date" name="end_date" class="border p-2 rounded">
+                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Filter</button>
+            </div>
+        </form>
+        
+        <!-- Inpatients List -->
+        <div>
+            <h2 class="text-xl font-semibold mb-4">Inpatients List</h2>
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="py-2 px-4 text-left">Patient Name</th>
+                        <th class="py-2 px-4 text-left">Room Number</th>
+                        <th class="py-2 px-4 text-left">Attending Doctor</th>
+                        <th class="py-2 px-4 text-left">Admission Date</th>
+                        <th class="py-2 px-4 text-left">Diagnosis</th>
+                        <th class="py-2 px-4 text-left">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="inpatientsTableBody">
+                    <!-- Inpatients will be loaded here dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Inpatient Admission Modal -->
+<div id="inpatientModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <h2 class="text-xl font-semibold mb-4">Admit New Inpatient</h2>
+        <form id="inpatientForm" class="space-y-4">
+            <input type="hidden" id="inpatientId" name="id">
+            <div>
+                <label for="patient_name" class="block mb-1">Patient Name *</label>
+                <input type="text" id="patient_name" name="patient_name" required class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="room_number" class="block mb-1">Room Number *</label>
+                <input type="text" id="room_number" name="room_number" required class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="doctor" class="block mb-1">Attending Doctor *</label>
+                <select id="doctor" name="doctor" required class="w-full p-2 border rounded">
+                    <option value="">Select a doctor</option>
+                    {% for doctor in doctors %}
+                        <option value="{{ doctor.id }}">{{ doctor.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="admission_date" class="block mb-1">Admission Date *</label>
+                <input type="date" id="admission_date" name="admission_date" required class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label for="diagnosis" class="block mb-1">Diagnosis</label>
+                <textarea id="diagnosis" name="diagnosis" rows="3" class="w-full p-2 border rounded"></textarea>
+            </div>
+            <div class="flex justify-end">
+                <button type="button" id="cancelAdmission" class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 mr-2">Cancel</button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Admit Patient</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function loadInpatients() {
+    const formData = new FormData(document.getElementById('filterForm'));
+    const params = new URLSearchParams(formData);
+
+    fetch(`/inpatient-management?${params.toString()}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(inpatients => {
+        const tbody = document.getElementById('inpatientsTableBody');
+        tbody.innerHTML = '';
+        inpatients.forEach(inpatient => {
+            const formattedDate = new Date(inpatient.admission_date).toLocaleString('en-US', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }).toUpperCase();
+
+            const row = `
+                <tr>
+                    <td class="py-2 px-4">${inpatient.patient_name}</td>
+                    <td class="py-2 px-4">${inpatient.room_number}</td>
+                    <td class="py-2 px-4">${inpatient.doctor_name}</td>
+                    <td class="py-2 px-4">${formattedDate}</td>
+                    <td class="py-2 px-4">${inpatient.diagnosis}</td>
+                    <td class="py-2 px-4">
+                        <button onclick="editInpatient(${inpatient.id})" class="text-blue-500 hover:text-blue-700 mr-2">Edit</button>
+                        <form onsubmit="dischargeInpatient(event, ${inpatient.id})" class="inline">
+                            <button type="submit" class="text-red-500 hover:text-red-700">Discharge</button>
+                        </form>
+                    </td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+    });
+}
+
+// Add event listener for real-time search
+document.getElementById('inpatientSearch').addEventListener('input', function() {
+    // Use a debounce function to prevent too many requests
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+        loadInpatients();
+    }, 300); // Wait for 300ms after the user stops typing
+});
+
+// Add event listeners for other filter inputs
+document.querySelectorAll('#filterForm input[type="date"]').forEach(input => {
+    input.addEventListener('change', loadInpatients);
+});
+
+document.getElementById('filterForm').removeEventListener('submit', loadInpatients);
+
+document.getElementById('admitInpatientBtn').addEventListener('click', function() {
+    document.getElementById('inpatientModal').classList.remove('hidden');
+});
+
+document.getElementById('cancelAdmission').addEventListener('click', function() {
+    document.getElementById('inpatientModal').classList.add('hidden');
+    document.getElementById('inpatientForm').reset();
+});
+
+document.getElementById('inpatientForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const inpatientId = formData.get('id');
+    const method = inpatientId ? 'PUT' : 'POST';
+    const url = '/inpatient-management' + (inpatientId ? `/${inpatientId}` : '');
+
+    fetch(url, {
+        method: method,
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.reset();
+            loadInpatients();
+            document.getElementById('inpatientModal').classList.add('hidden');
+        } else {
+            alert('Error saving inpatient');
+        }
+    });
+});
+
+function editInpatient(id) {
+    fetch(`/inpatient-management/${id}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(inpatient => {
+        const form = document.getElementById('inpatientForm');
+        form.id.value = inpatient.id;
+        form.patient_name.value = inpatient.patient_name;
+        form.room_number.value = inpatient.room_number;
+        form.doctor.value = inpatient.doctor_id;
+        form.admission_date.value = inpatient.admission_date;
+        form.diagnosis.value = inpatient.diagnosis;
+        document.getElementById('inpatientModal').classList.remove('hidden');
+    });
+}
+
+function dischargeInpatient(event, id) {
+    event.preventDefault();
+    if (confirm('Are you sure you want to discharge this patient?')) {
+        fetch(`/inpatient-management/${id}/discharge`, { 
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                discharge_date: new Date().toISOString().split('T')[0] // Current date
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadInpatients();
+            } else {
+                alert('Error discharging patient: ' + data.message);
+            }
+        });
+    }
+}
+
+// Load inpatients when the page loads
+loadInpatients();
+</script>
+{% endblock %}
