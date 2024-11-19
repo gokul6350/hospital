@@ -35,6 +35,7 @@
                         <th class="py-2 px-4 text-left">Attending Doctor</th>
                         <th class="py-2 px-4 text-left">Admission Date</th>
                         <th class="py-2 px-4 text-left">Diagnosis</th>
+                        <th class="py-2 px-4 text-left">Doctor Notes</th>
                         <th class="py-2 px-4 text-left">Actions</th>
                     </tr>
                 </thead>
@@ -85,7 +86,96 @@
     </div>
 </div>
 
+<!-- Doctor Notes Modal -->
+<div id="doctorNotesModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+    <div class="relative top-20 mx-auto p-5 border w-[800px] shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Doctor Notes</h2>
+            <button id="closeNotesModal" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Quick Add Note Input -->
+        <div class="mb-6 mt-4">
+            <div class="flex flex-col gap-3">
+                <textarea 
+                    id="quickNoteInput" 
+                    placeholder="Type a note (Enter for new line)..." 
+                    class="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[72px] max-h-[200px] overflow-y-auto resize-none"
+                    rows="3"
+                ></textarea>
+                <div class="flex items-center gap-2 mt-2">
+                    <input type="checkbox" id="setReminder" class="rounded">
+                    <label for="setReminder">Set Reminder</label>
+                    <input 
+                        type="datetime-local" 
+                        id="reminderTime" 
+                        class="border rounded p-2 disabled:opacity-50" 
+                        disabled
+                    >
+                </div>
+                <button 
+                    id="addNoteBtn"
+                    class="self-end px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                >
+                    Add Note
+                </button>
+            </div>
+        </div>
+        
+        <!-- Notes List -->
+        <div id="notesList" class="mb-4 max-h-[400px] overflow-y-auto">
+            <!-- Notes will be loaded here dynamically -->
+        </div>
+
+        <!-- Add/Edit Note Form (hidden by default, shows when editing) -->
+        <form id="doctorNotesForm" class="space-y-4 hidden">
+            <input type="hidden" id="notePatientId" name="patient_id">
+            <input type="hidden" id="noteIndex" name="note_index" value="-1">
+            <div>
+                <label for="doctor_note" class="block mb-1">Edit Note</label>
+                <textarea id="doctor_note" name="note_text" rows="4" class="w-full p-2 border rounded"></textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" id="cancelNote" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .dropdown-menu {
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+        transition-delay: 0s;
+    }
+
+    .patient-name-cell:hover .dropdown-menu {
+        opacity: 1;
+        visibility: visible;
+        transition-delay: 0s;
+    }
+
+    .dropdown-menu:hover {
+        opacity: 1;
+        visibility: visible;
+        transition-delay: 0s;
+    }
+</style>
+
 <script>
+let currentNotes = [];
+let currentPatientId = null;
+
 function loadInpatients() {
     const formData = new FormData(document.getElementById('filterForm'));
     const params = new URLSearchParams(formData);
@@ -111,16 +201,28 @@ function loadInpatients() {
 
             const row = `
                 <tr>
-                    <td class="py-2 px-4">${inpatient.patient_name}</td>
+                    <td class="py-2 px-4 relative patient-name-cell">
+                        <div class="flex items-center">
+                            ${inpatient.patient_name}
+                            <div class="dropdown-menu absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50" style="top: 100%;">
+                                <button onclick="editInpatient(${inpatient.id})" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
+                                    Edit Patient
+                                </button>
+                                <button onclick="editNotes(${inpatient.id})" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
+                                    Edit Notes
+                                </button>
+                            </div>
+                        </div>
+                    </td>
                     <td class="py-2 px-4">${inpatient.room_number}</td>
                     <td class="py-2 px-4">${inpatient.doctor_name}</td>
-                    <td class="py-2 px-4">${formattedDate}</td>
-                    <td class="py-2 px-4">${inpatient.diagnosis}</td>
+                    <td class="py-2 px-4">${inpatient.admission_date}</td>
+                    <td class="py-2 px-4">${inpatient.diagnosis || ''}</td>
+                    <td class="py-2 px-4">${updateInpatientRow(inpatient)}</td>
                     <td class="py-2 px-4">
-                        <button onclick="editInpatient(${inpatient.id})" class="text-blue-500 hover:text-blue-700 mr-2">Edit</button>
-                        <form onsubmit="dischargeInpatient(event, ${inpatient.id})" class="inline">
-                            <button type="submit" class="text-red-500 hover:text-red-700">Discharge</button>
-                        </form>
+                        <button onclick="dischargeInpatient(${inpatient.id})" class="text-red-500 hover:text-red-700">
+                            Discharge
+                        </button>
                     </td>
                 </tr>
             `;
@@ -146,12 +248,21 @@ document.querySelectorAll('#filterForm input[type="date"]').forEach(input => {
 document.getElementById('filterForm').removeEventListener('submit', loadInpatients);
 
 document.getElementById('admitInpatientBtn').addEventListener('click', function() {
+    // Reset the form
+    const form = document.getElementById('inpatientForm');
+    form.reset();
+    form.id.value = '';  // Clear any existing ID
+    
+    // Set default admission date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('admission_date').value = today;
+    
+    // Show the modal
     document.getElementById('inpatientModal').classList.remove('hidden');
 });
 
 document.getElementById('cancelAdmission').addEventListener('click', function() {
     document.getElementById('inpatientModal').classList.add('hidden');
-    document.getElementById('inpatientForm').reset();
 });
 
 document.getElementById('inpatientForm').addEventListener('submit', function(e) {
@@ -168,12 +279,18 @@ document.getElementById('inpatientForm').addEventListener('submit', function(e) 
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            this.reset();
-            loadInpatients();
+            // Hide the modal and reset the form
             document.getElementById('inpatientModal').classList.add('hidden');
+            this.reset();
+            // Refresh the inpatients list
+            loadInpatients();
         } else {
-            alert('Error saving inpatient');
+            alert('Error: ' + (data.message || 'Failed to save inpatient'));
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving inpatient');
     });
 });
 
@@ -196,31 +313,322 @@ function editInpatient(id) {
     });
 }
 
-function dischargeInpatient(event, id) {
-    event.preventDefault();
-    if (confirm('Are you sure you want to discharge this patient?')) {
-        fetch(`/inpatient-management/${id}/discharge`, { 
+function dischargeInpatient(id) {
+    if (confirm('Are you sure you want to discharge this patient? This will also remove all associated doctor notes.')) {
+        fetch(`/inpatient-management/${id}/discharge`, {
             method: 'POST',
             headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({
-                discharge_date: new Date().toISOString().split('T')[0] // Current date
+                discharge_date: new Date().toISOString().split('T')[0]
             })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                loadInpatients();
+                loadInpatients();  // Refresh the table
             } else {
                 alert('Error discharging patient: ' + data.message);
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error discharging patient');
         });
     }
 }
 
+function editNotes(id) {
+    currentPatientId = id;
+    // Get all notes for this patient
+    fetch(`/inpatient-management/${id}/notes`, {  // New endpoint for getting notes
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('notePatientId').value = id;
+        try {
+            currentNotes = data.notes || [];
+        } catch (e) {
+            console.error('Error parsing notes:', e);
+            currentNotes = [];
+        }
+        renderNotes();
+        document.getElementById('doctorNotesForm').classList.add('hidden');
+        document.getElementById('doctorNotesModal').classList.remove('hidden');
+    });
+}
+
+function renderNotes() {
+    const notesList = document.getElementById('notesList');
+    notesList.innerHTML = '';
+    
+    if (!currentNotes.length) {
+        notesList.innerHTML = '<p class="text-gray-500 italic p-4">No notes available</p>';
+        return;
+    }
+
+    [...currentNotes].reverse().forEach((note, index) => {
+        const actualIndex = currentNotes.length - 1 - index;
+        const noteElement = `
+            <div class="border rounded p-4 mb-4 bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex flex-col gap-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-medium text-gray-600">Note #${actualIndex + 1}</span>
+                            <span class="text-sm text-gray-500">${new Date(note.datetime).toLocaleString()}</span>
+                        </div>
+                        ${note.reminder_time ? `
+                            <div class="text-sm text-blue-600">
+                                <i class="fas fa-bell mr-1"></i>
+                                Reminder: ${new Date(note.reminder_time).toLocaleString()}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="editNote(${actualIndex})" class="text-blue-500 hover:text-blue-700">
+                            Edit
+                        </button>
+                        <button onclick="deleteNote(${actualIndex})" class="text-red-500 hover:text-red-700">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+                <div class="whitespace-pre-wrap text-gray-700">${note.text}</div>
+            </div>
+        `;
+        notesList.insertAdjacentHTML('beforeend', noteElement);
+    });
+}
+
+function editNote(index) {
+    const note = currentNotes[index];
+    document.getElementById('noteIndex').value = index;
+    document.getElementById('doctor_note').value = note.text;
+    document.getElementById('doctorNotesForm').classList.remove('hidden');
+}
+
+function deleteNote(index) {
+    if (confirm('Are you sure you want to delete this note?')) {
+        const note = currentNotes[index];
+        
+        // Remove the note from the array
+        currentNotes.splice(index, 1);
+        
+        // Call the delete endpoint
+        fetch('/delete-doctor-note', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                note_id: note.note_id,
+                patient_id: currentPatientId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the notes display
+                renderNotes();
+                loadInpatients();
+            } else {
+                alert('Error deleting note: ' + data.message);
+                // Revert the deletion if there was an error
+                currentNotes.splice(index, 0, note);
+                renderNotes();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting note');
+            // Revert the deletion if there was an error
+            currentNotes.splice(index, 0, note);
+            renderNotes();
+        });
+    }
+}
+
+// Add function to delete all notes for a patient
+function deleteAllNotes() {
+    if (confirm('Are you sure you want to delete all notes for this patient?')) {
+        fetch('/delete-doctor-note', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                patient_id: currentPatientId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentNotes = [];
+                renderNotes();
+                loadInpatients();
+            } else {
+                alert('Error deleting notes: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting notes');
+        });
+    }
+}
+
+// Auto-resize textarea function
+function autoResize(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+}
+
+// Quick note input handler with auto-resize
+document.getElementById('quickNoteInput').addEventListener('input', function() {
+    autoResize(this);
+});
+
+// Add Note Button Handler
+document.getElementById('addNoteBtn').addEventListener('click', function() {
+    const quickNoteInput = document.getElementById('quickNoteInput');
+    const noteText = quickNoteInput.value.trim();
+    const setReminder = document.getElementById('setReminder');
+    const reminderTime = document.getElementById('reminderTime');
+    
+    if (noteText) {
+        const newNote = {
+            text: noteText,
+            datetime: new Date().toISOString(),
+            reminder_time: setReminder.checked ? reminderTime.value : null,
+            note_id: null  // This will be set by the server
+        };
+        
+        currentNotes.push(newNote);
+        updateNotes();
+        quickNoteInput.value = ''; // Clear the input
+        quickNoteInput.style.height = 'auto'; // Reset height
+        setReminder.checked = false; // Reset reminder checkbox
+        reminderTime.disabled = true; // Disable reminder time input
+    }
+});
+
+// Optional: Add Ctrl+Enter shortcut for quick submission
+document.getElementById('quickNoteInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        document.getElementById('addNoteBtn').click();
+    }
+});
+
+// Reset textarea height when modal is closed
+document.getElementById('closeNotesModal').addEventListener('click', function() {
+    const quickNoteInput = document.getElementById('quickNoteInput');
+    quickNoteInput.value = '';
+    quickNoteInput.style.height = 'auto';
+    document.getElementById('doctorNotesModal').classList.add('hidden');
+    document.getElementById('doctorNotesForm').classList.add('hidden');
+    currentNotes = [];
+    currentPatientId = null;
+});
+
+// Cancel Note Button Handler
+document.getElementById('cancelNote').addEventListener('click', function() {
+    document.getElementById('doctorNotesForm').classList.add('hidden');
+    document.getElementById('doctor_note').value = '';
+});
+
+// Doctor Notes Form Submit Handler
+document.getElementById('doctorNotesForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const noteText = document.getElementById('doctor_note').value;
+    const noteIndex = parseInt(document.getElementById('noteIndex').value);
+    
+    const newNote = {
+        text: noteText,
+        datetime: new Date().toISOString(),
+        note_id: currentNotes[noteIndex]?.note_id || null  // Preserve existing note_id if editing
+    };
+
+    if (noteIndex === -1) {
+        currentNotes.push(newNote);
+    } else {
+        currentNotes[noteIndex] = newNote;
+    }
+
+    updateNotes();
+    this.reset();
+    this.classList.add('hidden');
+});
+
+function updateNotes() {
+    const setReminder = document.getElementById('setReminder');
+    const reminderTime = document.getElementById('reminderTime');
+    
+    fetch(`/inpatient-management/${currentPatientId}/update-note`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            note_text: JSON.stringify(currentNotes),  // Send all notes
+            reminder_time: setReminder.checked ? reminderTime.value : null
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update all notes with their IDs if provided
+            if (data.notes) {
+                currentNotes = data.notes;
+            }
+            renderNotes();
+            loadInpatients();
+        } else {
+            alert('Error updating notes: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating notes');
+    });
+}
+
+// Update the loadInpatients function to handle JSON notes
+function updateInpatientRow(inpatient) {
+    let displayNote = 'No notes';
+    try {
+        const notes = JSON.parse(inpatient.doctor_note);
+        if (notes && notes.length > 0) {
+            const latestNote = notes[notes.length - 1];
+            displayNote = latestNote.text.substring(0, 50) + (latestNote.text.length > 50 ? '...' : '');
+        }
+    } catch (e) {
+        displayNote = inpatient.doctor_note || 'No notes';
+    }
+    return displayNote;
+}
+
 // Load inpatients when the page loads
 loadInpatients();
+
+// Handle reminder checkbox
+document.getElementById('setReminder').addEventListener('change', function() {
+    const reminderTime = document.getElementById('reminderTime');
+    reminderTime.disabled = !this.checked;
+    if (this.checked) {
+        // Set default reminder time to tomorrow at current time
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        reminderTime.value = tomorrow.toISOString().slice(0, 16);
+    }
+});
 </script>
 {% endblock %}

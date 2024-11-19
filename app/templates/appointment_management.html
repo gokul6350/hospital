@@ -14,6 +14,16 @@
             Book New Appointment
         </button>
         
+        <!-- Filters -->
+        <form id="filterForm" class="mb-6">
+            <div class="flex space-x-4">
+                <input type="text" id="appointmentSearch" name="search" placeholder="Search appointments..." class="border p-2 rounded">
+                <input type="date" name="start_date" class="border p-2 rounded">
+                <input type="date" name="end_date" class="border p-2 rounded">
+                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Filter</button>
+            </div>
+        </form>
+        
         <!-- Appointments List -->
         <div>
             <h2 class="text-xl font-semibold mb-4">Appointments List</h2>
@@ -80,7 +90,10 @@
 
 <script>
 function loadAppointments() {
-    fetch('/appointment-management', {
+    const formData = new FormData(document.getElementById('filterForm'));
+    const params = new URLSearchParams(formData);
+
+    fetch(`/appointment-management?${params.toString()}`, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
         }
@@ -89,6 +102,12 @@ function loadAppointments() {
     .then(appointments => {
         const tbody = document.getElementById('appointmentsTableBody');
         tbody.innerHTML = '';
+        
+        if (appointments.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-gray-500">No appointments found</td></tr>';
+            return;
+        }
+
         appointments.forEach(appointment => {
             const appointmentDate = new Date(appointment.appointment_date + 'T' + appointment.appointment_time);
             const formattedDateTime = appointmentDate.toLocaleString('en-US', {
@@ -113,6 +132,11 @@ function loadAppointments() {
             `;
             tbody.insertAdjacentHTML('beforeend', row);
         });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const tbody = document.getElementById('appointmentsTableBody');
+        tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-red-500">Error loading appointments</td></tr>';
     });
 }
 
@@ -186,6 +210,28 @@ function deleteAppointment(id) {
         });
     }
 }
+
+// Add event listener for real-time search
+document.getElementById('appointmentSearch').addEventListener('input', function() {
+    // Use a debounce function to prevent too many requests
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+        loadAppointments();
+    }, 300); // Wait for 300ms after the user stops typing
+});
+
+// Add event listeners for date inputs
+document.querySelectorAll('#filterForm input[type="date"]').forEach(input => {
+    input.addEventListener('change', loadAppointments);
+});
+
+// Remove the submit event listener since we don't need it anymore
+document.getElementById('filterForm').removeEventListener('submit', loadAppointments);
+
+// Prevent form submission
+document.getElementById('filterForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+});
 
 // Load appointments when the page loads
 loadAppointments();

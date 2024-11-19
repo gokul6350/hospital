@@ -1,0 +1,289 @@
+Schema for database: C:\Users\PLC\Documents\hospital\src2\instance\hospital.db
+==================================================
+
+Table: patient
+------------------------------
+CREATE TABLE patient (
+	id INTEGER NOT NULL, 
+	firstname VARCHAR(100) NOT NULL, 
+	lastname VARCHAR(100) NOT NULL, 
+	mobile VARCHAR(20) NOT NULL, 
+	alternate_mobile VARCHAR(20), 
+	email VARCHAR(120), 
+	sex VARCHAR(10), 
+	age INTEGER, 
+	marital_status VARCHAR(20), 
+	occupation VARCHAR(100), 
+	blood_group VARCHAR(5), 
+	emergency_contact_person VARCHAR(100), 
+	emergency_contact_number VARCHAR(20), 
+	emergency_contact_relation VARCHAR(50), 
+	created_at DATETIME, address TEXT, 
+	PRIMARY KEY (id)
+);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY | NOT NULL)
+  - firstname: VARCHAR(100) (NOT NULL)
+  - lastname: VARCHAR(100) (NOT NULL)
+  - mobile: VARCHAR(20) (NOT NULL)
+  - alternate_mobile: VARCHAR(20)
+  - email: VARCHAR(120)
+  - sex: VARCHAR(10)
+  - age: INTEGER
+  - marital_status: VARCHAR(20)
+  - occupation: VARCHAR(100)
+  - blood_group: VARCHAR(5)
+  - emergency_contact_person: VARCHAR(100)
+  - emergency_contact_number: VARCHAR(20)
+  - emergency_contact_relation: VARCHAR(50)
+  - created_at: DATETIME
+  - address: TEXT
+
+==================================================
+
+Table: appointment
+------------------------------
+CREATE TABLE appointment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_name TEXT NOT NULL,
+    mobile TEXT NOT NULL,
+    appointment_date DATE NOT NULL,
+    appointment_time TIME NOT NULL,
+    reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+, doctor_id INTEGER);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY)
+  - patient_name: TEXT (NOT NULL)
+  - mobile: TEXT (NOT NULL)
+  - appointment_date: DATE (NOT NULL)
+  - appointment_time: TIME (NOT NULL)
+  - reason: TEXT
+  - created_at: DATETIME (DEFAULT CURRENT_TIMESTAMP)
+  - doctor_id: INTEGER
+
+==================================================
+
+Table: sqlite_sequence
+------------------------------
+CREATE TABLE sqlite_sequence(name,seq);
+
+Columns:
+  - name: 
+  - seq: 
+
+==================================================
+
+Table: doctor
+------------------------------
+CREATE TABLE doctor (
+	id INTEGER NOT NULL, 
+	name VARCHAR(100) NOT NULL, 
+	phone VARCHAR(20) NOT NULL, 
+	sex VARCHAR(10) NOT NULL, 
+	created_at DATETIME, 
+	PRIMARY KEY (id)
+);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY | NOT NULL)
+  - name: VARCHAR(100) (NOT NULL)
+  - phone: VARCHAR(20) (NOT NULL)
+  - sex: VARCHAR(10) (NOT NULL)
+  - created_at: DATETIME
+
+==================================================
+
+Table: inpatient
+------------------------------
+CREATE TABLE inpatient (
+	id INTEGER NOT NULL, 
+	patient_name VARCHAR(100) NOT NULL, 
+	room_number VARCHAR(20) NOT NULL, 
+	doctor_id INTEGER NOT NULL, 
+	admission_date DATE NOT NULL, 
+	diagnosis TEXT, 
+	created_at DATETIME, doctor_note TEXT, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(doctor_id) REFERENCES doctor (id)
+);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY | NOT NULL)
+  - patient_name: VARCHAR(100) (NOT NULL)
+  - room_number: VARCHAR(20) (NOT NULL)
+  - doctor_id: INTEGER (NOT NULL)
+  - admission_date: DATE (NOT NULL)
+  - diagnosis: TEXT
+  - created_at: DATETIME
+  - doctor_note: TEXT
+
+==================================================
+
+Table: staff
+------------------------------
+CREATE TABLE staff (
+	id INTEGER NOT NULL, 
+	name VARCHAR(100) NOT NULL, 
+	phone VARCHAR(20) NOT NULL, 
+	sex VARCHAR(10) NOT NULL, 
+	role VARCHAR(100) NOT NULL, 
+	created_at DATETIME, 
+	PRIMARY KEY (id)
+);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY | NOT NULL)
+  - name: VARCHAR(100) (NOT NULL)
+  - phone: VARCHAR(20) (NOT NULL)
+  - sex: VARCHAR(10) (NOT NULL)
+  - role: VARCHAR(100) (NOT NULL)
+  - created_at: DATETIME
+
+==================================================
+
+Table: discharged_patient
+------------------------------
+CREATE TABLE discharged_patient (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_name VARCHAR(100) NOT NULL,
+    room_number VARCHAR(20) NOT NULL,
+    doctor_id INTEGER NOT NULL,
+    admission_date DATE NOT NULL,
+    discharge_date DATE NOT NULL,
+    diagnosis TEXT,
+    FOREIGN KEY (doctor_id) REFERENCES doctor (id)
+);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY)
+  - patient_name: VARCHAR(100) (NOT NULL)
+  - room_number: VARCHAR(20) (NOT NULL)
+  - doctor_id: INTEGER (NOT NULL)
+  - admission_date: DATE (NOT NULL)
+  - discharge_date: DATE (NOT NULL)
+  - diagnosis: TEXT
+
+==================================================
+
+Table: op_record_new
+------------------------------
+CREATE TABLE op_record_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    op_id VARCHAR(20) NOT NULL UNIQUE,
+    patient_id INTEGER NOT NULL,
+    doctor_id INTEGER NOT NULL,
+    visit_date DATE NOT NULL,
+    reason TEXT,
+    status VARCHAR(20) NOT NULL,
+    FOREIGN KEY (patient_id) REFERENCES patient(id),
+    FOREIGN KEY (doctor_id) REFERENCES doctor(id)
+);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY)
+  - op_id: VARCHAR(20) (NOT NULL)
+  - patient_id: INTEGER (NOT NULL)
+  - doctor_id: INTEGER (NOT NULL)
+  - visit_date: DATE (NOT NULL)
+  - reason: TEXT
+  - status: VARCHAR(20) (NOT NULL)
+
+Indexes:
+  - None;
+
+==================================================
+
+Table: op_record
+------------------------------
+CREATE TABLE "op_record" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    op_id VARCHAR(20) NOT NULL UNIQUE,
+    patient_id INTEGER NOT NULL,
+    doctor_id INTEGER NOT NULL,
+    visit_date DATE NOT NULL,
+    reason TEXT,
+    status VARCHAR(20) NOT NULL,
+    FOREIGN KEY (patient_id) REFERENCES patient(id),
+    FOREIGN KEY (doctor_id) REFERENCES doctor(id)
+);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY)
+  - op_id: VARCHAR(20) (NOT NULL)
+  - patient_id: INTEGER (NOT NULL)
+  - doctor_id: INTEGER (NOT NULL)
+  - visit_date: DATE (NOT NULL)
+  - reason: TEXT
+  - status: VARCHAR(20) (NOT NULL)
+
+Indexes:
+  - None;
+  - CREATE INDEX idx_op_record_patient_id ON op_record(patient_id);
+  - CREATE INDEX idx_op_record_doctor_id ON op_record(doctor_id);
+
+==================================================
+
+Table: inpatient2
+------------------------------
+CREATE TABLE inpatient2 (
+	id INTEGER NOT NULL, 
+	patient_name VARCHAR(100) NOT NULL, 
+	room_number VARCHAR(20) NOT NULL, 
+	doctor_id INTEGER NOT NULL, 
+	admission_date DATE NOT NULL, 
+	diagnosis TEXT, 
+	created_at DATETIME,  
+	PRIMARY KEY (id), 
+	FOREIGN KEY(doctor_id) REFERENCES doctor (id)
+);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY | NOT NULL)
+  - patient_name: VARCHAR(100) (NOT NULL)
+  - room_number: VARCHAR(20) (NOT NULL)
+  - doctor_id: INTEGER (NOT NULL)
+  - admission_date: DATE (NOT NULL)
+  - diagnosis: TEXT
+  - created_at: DATETIME
+
+==================================================
+
+Table: reminder
+------------------------------
+CREATE TABLE reminder (
+    id SERIAL PRIMARY KEY,
+    reminder_time TIMESTAMP NOT NULL,
+    note_id INTEGER NOT NULL
+);
+
+Columns:
+  - id: SERIAL (PRIMARY KEY)
+  - reminder_time: TIMESTAMP (NOT NULL)
+  - note_id: INTEGER (NOT NULL)
+
+Indexes:
+  - None;
+
+==================================================
+
+Table: doctor_notes
+------------------------------
+CREATE TABLE doctor_notes (
+    id INTEGER NOT NULL PRIMARY KEY,
+    patient_id INTEGER NOT NULL,
+    note_text TEXT NOT NULL,
+    reminder_time TIMESTAMP,
+    FOREIGN KEY(patient_id) REFERENCES inpatient2 (id) ON DELETE CASCADE
+);
+
+Columns:
+  - id: INTEGER (PRIMARY KEY | NOT NULL)
+  - patient_id: INTEGER (NOT NULL)
+  - note_text: TEXT (NOT NULL)
+  - reminder_time: TIMESTAMP
+
+==================================================
+

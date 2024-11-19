@@ -113,6 +113,8 @@ class OPRecord(db.Model):
         }
 
 class Inpatient(db.Model):
+    __tablename__ = 'inpatient2'
+
     id = db.Column(db.Integer, primary_key=True)
     patient_name = db.Column(db.String(100), nullable=False)
     room_number = db.Column(db.String(20), nullable=False)
@@ -174,4 +176,23 @@ class DischargedPatient(db.Model):
             'admission_date': self.admission_date.strftime('%Y-%m-%d'),
             'discharge_date': self.discharge_date.strftime('%Y-%m-%d'),
             'diagnosis': self.diagnosis
+        }
+
+class DoctorNotes(db.Model):
+    __tablename__ = 'doctor_notes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('inpatient2.id', ondelete='CASCADE'), nullable=False)
+    note_text = db.Column(db.Text, nullable=False)
+    reminder_time = db.Column(db.DateTime, nullable=True)  # Optional reminder field
+
+    # Relationship with Inpatient
+    patient = db.relationship('Inpatient', backref='doctor_notes')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'patient_id': self.patient_id,
+            'note_text': self.note_text,
+            'reminder_time': self.reminder_time.isoformat() if self.reminder_time else None
         }

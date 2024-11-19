@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Life Line Hospital{% endblock %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Life Line Hospital</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            padding: 20px;
+        }
+        .card h3 {
+            margin: 0;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .card p {
+            margin: 10px 0 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .progress-container {
+            height: 4px;
+            background-color: #e5e7eb;
+            border-radius: 2px;
+            margin-top: 10px;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #2563eb;
+            border-radius: 2px;
+        }
+        .chart-container {
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="grid">
+            <div class="card">
+                <h3>Patients</h3>
+                <p>{{ patients_count }}</p>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ (patients_count/100)*100 if patients_count else 0 }}%;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Outpatients</h3>
+                <p>{{ op_records_count }}</p>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ (op_records_count/100)*100 if op_records_count else 0 }}%;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Inpatients</h3>
+                <p>{{ inpatients_count }}</p>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ (inpatients_count/100)*100 if inpatients_count else 0 }}%;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Appointments</h3>
+                <p>{{ appointments_count }}</p>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ (appointments_count/100)*100 if appointments_count else 0 }}%;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Doctors</h3>
+                <p>{{ doctors_count }}</p>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ (doctors_count/10)*100 if doctors_count else 0 }}%;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Staff</h3>
+                <p>{{ staff_count }}</p>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ (staff_count/10)*100 if staff_count else 0 }}%;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Revenue</h3>
+                <p>{{ '{:,.2f}'.format(revenue/1000) }}K</p>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ (revenue/10000)*100 if revenue else 0 }}%;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Discharges</h3>
+                <p>{{ discharged_count }}</p>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ (discharged_count/100)*100 if discharged_count else 0 }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid" style="margin-top: 20px;">
+            <div class="card">
+                <h3>OPs by Month</h3>
+                <div class="chart-container">
+                    <canvas id="opsChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <h3>IPs by Month</h3>
+                <div class="chart-container">
+                    <canvas id="ipsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Create OPs chart
+        const opsCtx = document.getElementById('opsChart').getContext('2d');
+        new Chart(opsCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ months|tojson }},
+                datasets: [{
+                    label: 'OPs',
+                    data: {{ ops_data|tojson }},
+                    backgroundColor: '#2563eb',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Create IPs chart
+        const ipsCtx = document.getElementById('ipsChart').getContext('2d');
+        new Chart(ipsCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ months|tojson }},
+                datasets: [{
+                    label: 'IPs',
+                    data: {{ ips_data|tojson }},
+                    backgroundColor: '#2563eb',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+{% endblock %}
