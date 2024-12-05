@@ -56,6 +56,7 @@ class Appointment(db.Model):
     reason = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     doctor = db.relationship('Doctor', backref='appointments')
+    status = db.Column(db.String(10), nullable=False, default='open')
 
     def __repr__(self):
         return f'<Appointment {self.id}: {self.patient_name} on {self.appointment_date}>'

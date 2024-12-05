@@ -624,10 +624,17 @@ document.getElementById('setReminder').addEventListener('change', function() {
     const reminderTime = document.getElementById('reminderTime');
     reminderTime.disabled = !this.checked;
     if (this.checked) {
-        // Set default reminder time to tomorrow at current time
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        reminderTime.value = tomorrow.toISOString().slice(0, 16);
+        // Set default reminder time to current time
+        const now = new Date();
+        // Format the date and time to work with datetime-local input
+        // Add padding to ensure proper format (YYYY-MM-DDTHH:mm)
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
+        reminderTime.value = `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 });
 </script>

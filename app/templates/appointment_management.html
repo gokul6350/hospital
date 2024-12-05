@@ -34,6 +34,7 @@
                         <th class="py-2 px-4 text-left">Mobile</th>
                         <th class="py-2 px-4 text-left">Doctor</th>
                         <th class="py-2 px-4 text-left">Date & Time</th>
+                        <th class="py-2 px-4 text-left">Status</th>
                         <th class="py-2 px-4 text-left">Actions</th>
                     </tr>
                 </thead>
@@ -80,6 +81,13 @@
                 <label for="reason" class="block mb-1">Reason for Appointment</label>
                 <textarea id="reason" name="reason" rows="3" class="w-full p-2 border rounded"></textarea>
             </div>
+            <div>
+                <label for="status" class="block mb-1">Status</label>
+                <select id="status" name="status" class="w-full p-2 border rounded">
+                    <option value="open">Open</option>
+                    <option value="close">Close</option>
+                </select>
+            </div>
             <div class="flex justify-end">
                 <button type="button" id="cancelBooking" class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 mr-2">Cancel</button>
                 <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Book Appointment</button>
@@ -124,6 +132,15 @@ function loadAppointments() {
                     <td class="py-2 px-4">${appointment.mobile}</td>
                     <td class="py-2 px-4">${appointment.doctor_name}</td>
                     <td class="py-2 px-4">${formattedDateTime}</td>
+                    <td class="py-2 px-4">
+                        <select 
+                            onchange="updateStatus(${appointment.id}, this.value)" 
+                            class="border rounded px-2 py-1 ${appointment.status === 'open' ? 'text-green-600' : 'text-red-600'}"
+                        >
+                            <option value="open" ${appointment.status === 'open' ? 'selected' : ''}>Open</option>
+                            <option value="close" ${appointment.status === 'close' ? 'selected' : ''}>Close</option>
+                        </select>
+                    </td>
                     <td class="py-2 px-4">
                         <button onclick="editAppointment(${appointment.id})" class="text-blue-500 hover:text-blue-700 mr-2">Edit</button>
                         <button onclick="deleteAppointment(${appointment.id})" class="text-red-500 hover:text-red-700">Delete</button>
@@ -188,6 +205,7 @@ function editAppointment(id) {
         form.appointment_date.value = appointment.appointment_date;
         form.appointment_time.value = appointment.appointment_time;
         form.reason.value = appointment.reason;
+        form.status.value = appointment.status;
         document.getElementById('appointmentModal').classList.remove('hidden');
     });
 }
@@ -235,5 +253,38 @@ document.getElementById('filterForm').addEventListener('submit', function(e) {
 
 // Load appointments when the page loads
 loadAppointments();
+
+// Add this new function to handle status updates
+function updateStatus(id, newStatus) {
+    fetch(`/appointment-management/${id}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Update the select element's color
+            const select = document.querySelector(`select[onchange*="${id}"]`);
+            select.className = `border rounded px-2 py-1 ${newStatus === 'open' ? 'text-green-600' : 'text-red-600'}`;
+        } else {
+            alert('Error updating status: ' + data.message);
+            loadAppointments(); // Reload to reset the status
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating status');
+        loadAppointments(); // Reload to reset the status
+    });
+}
 </script>
 {% endblock %}

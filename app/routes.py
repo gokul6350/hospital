@@ -13,6 +13,8 @@ from tkinter import messagebox
 from datetime import datetime, timezone
 import threading
 import time
+import os
+import google.generativeai as genai
 
 def format_datetime(dt_str):
     dt = datetime.fromisoformat(dt_str)
@@ -300,7 +302,8 @@ def appointment_management(id=None):
             doctor_id=request.form['doctor'],
             appointment_date=datetime.strptime(request.form['appointment_date'], '%Y-%m-%d').date(),
             appointment_time=datetime.strptime(request.form['appointment_time'], '%H:%M').time(),
-            reason=request.form['reason']
+            reason=request.form['reason'],
+            status=request.form.get('status', 'open')
         )
         db.session.add(new_appointment)
         db.session.commit()
@@ -315,6 +318,7 @@ def appointment_management(id=None):
         appointment.appointment_date = datetime.strptime(request.form['appointment_date'], '%Y-%m-%d').date()
         appointment.appointment_time = datetime.strptime(request.form['appointment_time'], '%H:%M').time()
         appointment.reason = request.form['reason']
+        appointment.status = request.form.get('status', appointment.status)
         db.session.commit()
         return jsonify({'success': True, 'message': 'Appointment updated successfully'})    
     
@@ -333,6 +337,12 @@ def appointment_management(id=None):
 
 
 
+
+@main.route('/pharmacy')
+def pharmacy():
+    # The Streamlit app runs on port 8501 by default
+    streamlit_url = "http://localhost:8501"
+    return render_template('pharmacy.html', streamlit_url=streamlit_url)
 
 @main.route('/insurance')
 def insurance():
@@ -1069,7 +1079,7 @@ def connectreminders():
         print(f"[ERROR] Error in get_reminders: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e
+            "message": str(e)
         }), 500  
 
 @main.route('/delete-doctor-note', methods=['POST'])
@@ -1108,7 +1118,91 @@ def delete_doctor_note():
             'message': str(e)
         }), 500
 
+@main.route('/chat')
+def chat():
+    # Get database schema info for the chat interface
+    tables_info = {
+        'Patient': {
+            'count': db.session.query(Patient).count(),
+            'columns': [column.name for column in Patient.__table__.columns]
+        },
+        'Doctor': {
+            'count': db.session.query(Doctor).count(),
+            'columns': [column.name for column in Doctor.__table__.columns]
+        },
+        'Appointment': {
+            'count': db.session.query(Appointment).count(),
+            'columns': [column.name for column in Appointment.__table__.columns]
+        },
+        'OPRecord': {
+            'count': db.session.query(OPRecord).count(),
+            'columns': [column.name for column in OPRecord.__table__.columns]
+        },
+        'Inpatient': {
+            'count': db.session.query(Inpatient).count(),
+            'columns': [column.name for column in Inpatient.__table__.columns]
+        },
+        'Staff': {
+            'count': db.session.query(Staff).count(),
+            'columns': [column.name for column in Staff.__table__.columns]
+        }
+    }
+    
+    return render_template('chat.html', tables_info=tables_info)
 
+@main.route('/chat/query', methods=['POST'])
+def chat_query():
+    try:
+        question = request.json.get('question')
+        
+        # Initialize Gemini (you'll need to move the Gemini setup to a proper config)
+        genai.configure(api_key="AIzaSyBoUqeC-oQDQQWMe5-Vcmd17RoGw8qqZVM")
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config={
+                "temperature": 0.1,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 8192,
+            }
+        )
+
+        # Generate and execute SQL query
+        # (You'll need to implement proper SQL safety checks)
+        sql_query = model.generate_content(f"Convert to SQL: {question}").text
+        result = db.session.execute(text(sql_query))
+        data = [dict(row) for row in result]
+
+        # Format response
+        response = model.generate_content(f"Question: {question}\nData: {data}").text
+
+        return jsonify({
+            'sql_query': sql_query,
+            'data': data[:4],  # First 4 rows
+            'response': response
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@main.route('/appointment-management/<int:id>/status', methods=['PUT'])
+def update_appointment_status(id):
+    if not request.is_json:
+        return jsonify({'success': False, 'message': 'Invalid content type, expected JSON'}), 400
+    
+    try:
+        appointment = Appointment.query.get_or_404(id)
+        data = request.get_json()
+        
+        if 'status' not in data:
+            return jsonify({'success': False, 'message': 'Status field is required'}), 400
+            
+        appointment.status = data['status']
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Status updated successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
 
 
 
