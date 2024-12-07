@@ -8,10 +8,14 @@
     <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='logo.jpg') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.8.2/dist/alpine.min.js" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-100">
+    <audio id="notificationSound" preload="auto">
+        <source src="{{ url_for('static', filename='notification.wav') }}" type="audio/mpeg">
+    </audio>
+
     <div class="flex min-h-screen">
         <!-- Main Content -->
         <div class="flex flex-col flex-1">
@@ -20,71 +24,339 @@
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-indigo-800 mr-6">Life Line Hospital</h1>
-                        <!-- Services Dropdown -->
+                        <!-- Services Navigation -->
                         <nav x-data="{ open: false }" class="relative">
-                            <button @click="open = !open" class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 rounded">
-                                <span class="mr-1">Services</span>
-                                <i class="fas fa-chevron-down"></i>
-                            </button>
-                            <div x-show="open" @click.away="open = false" class="absolute left-0 mt-2 bg-white rounded-md shadow-lg z-10 w-max">
-                                <div class="grid grid-cols-7 gap-4 p-4">
-                                    <div>
-                                        <h3 class="font-bold mb-2">Dashboard</h3>
-                                        <a href="{{ url_for('main.index') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Dashboard</a>
-                                    </div>
-                                    <div>
-                                        <h3 class="font-bold mb-2">Patient Management</h3>
-                                        
-                                        <a href="{{ url_for('main.appointment_management') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Appointment Management</a>
-                                        <a href="{{ url_for('main.op_management') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">OP Management</a>
-                                        <a href="{{ url_for('main.patients') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Patients</a>
-                                        <a href="{{ url_for('main.inpatient_management') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">In-Patients</a>
-                                        <a href="{{ url_for('main.discharge') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Discharge</a>
-                                        <a href="{{ url_for('main.insurance') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Insurance</a>
-                                        <a href="{{ url_for('main.treatment') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Treatment</a>
-                                    </div>
-                                    <div>
-                                        <h3 class="font-bold mb-2">Staff Management</h3>
-                                        <a href="{{ url_for('main.doctors') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Doctors</a>
+                            <div class="flex space-x-4">
+                                <!-- Dashboard -->
+                                <a href="{{ url_for('main.index') }}" class="px-3 py-2 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 rounded">Dashboard</a>
                                 
-                                        <a href="{{ url_for('main.staff') }}" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Staff</a>
-                                    </div>
-                                    <div>
-                                        <h3 class="font-bold mb-2">Pharmacy</h3>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Medicines</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Stock</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Orders</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Suppliers</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Medicine Sale</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Sold Out Medicines</a>
-                                    </div>
-                                    <div>
-                                        <h3 class="font-bold mb-2">Diagnosis</h3>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Book Test</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Reports</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Tests</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Test Categories</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Test Group</a>
-                                    </div>
-                                    <div>
-                                        <h3 class="font-bold mb-2">Billing and Finance</h3>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Transactions</a>
-                                    </div>
-                                    <div>
-                                        <h3 class="font-bold mb-2">Settings</h3>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Administration</a>
-                                        <a href="#" class="block py-1 text-sm text-gray-700 hover:text-indigo-600">Reports</a>
+                                <!-- Patient Management -->
+                                <div class="relative" x-data="{ open: false }">
+                                    <button @click="open = !open" class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 rounded">
+                                        <span class="mr-1">Patient Management</span>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </button>
+                                    <div x-show="open" @click.away="open = false" class="absolute left-0 mt-2 bg-white rounded-md shadow-lg z-10">
+                                        <div class="py-1">
+                                            <a href="{{ url_for('main.appointment_management') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Appointment Management</a>
+                                            <a href="{{ url_for('main.op_management') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">OP Management</a>
+                                            <a href="{{ url_for('main.patients') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Patients</a>
+                                            <a href="{{ url_for('main.inpatient_management') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">In-Patients</a>
+                                            <a href="{{ url_for('main.discharge') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Discharge</a>
+                                            <a href="{{ url_for('main.insurance') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Insurance</a>
+                                            <a href="{{ url_for('main.treatment') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Treatment</a>
+                                        </div>
                                     </div>
                                 </div>
+
+                                <!-- Staff Management -->
+                                <div class="relative" x-data="{ open: false }">
+                                    <button @click="open = !open" class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 rounded">
+                                        <span class="mr-1">Staff Management</span>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </button>
+                                    <div x-show="open" @click.away="open = false" class="absolute left-0 mt-2 bg-white rounded-md shadow-lg z-10">
+                                        <div class="py-1">
+                                            <a href="{{ url_for('main.doctors') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Doctors</a>
+                                            <a href="{{ url_for('main.staff') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Staff</a>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Pharmacy section -->
+                                <div class="relative" x-data="{ open: false }">
+                                    <a href="{{ url_for('main.pharmacy') }}" class="px-3 py-2 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 rounded flex items-center">
+                                        <i class="fas fa-pills mr-2"></i>
+                                        <span>Pharmacy</span>
+                                    </a>
+                                </div>
+
+                                <!-- Chat with SQL link -->
+                                <div class="relative" x-data="{ open: false }">
+                                    <a href="http://localhost:8503/Chat_with_SQL" 
+                                       class="px-3 py-2 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 rounded flex items-center"
+                                       target="_blank">
+                                        <i class="fas fa-database mr-2"></i>
+                                        <span>Chat with SQL</span>
+                                    </a>
+                                </div>
+
+                                <!-- Other menus following the same pattern -->
                             </div>
                         </nav>
                     </div>
                     <div class="flex items-center">
-                        <div class="relative mr-4">
-                            <button class="text-gray-500 hover:text-gray-700">
-                                <i class="fas fa-bell"></i>
-                                <span class="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1">1</span>
+                        <div class="relative mr-4" 
+                             x-data="{ 
+                                notifications: [], 
+                                count: 0, 
+                                isOpen: false,
+                                currentReminder: null,
+                                async fetchNotifications() {
+                                    try {
+                                        const response = await fetch('/get-reminders');
+                                        const data = await response.json();
+                                        this.notifications = data.reminders || [];
+                                        this.count = data.count || 0;
+                                        console.log('[DEBUG] Fetched notifications:', this.notifications);
+                                    } catch (error) {
+                                        console.error('Error fetching notifications:', error);
+                                    }
+                                },
+                                checkReminders() {
+                                    const now = new Date();
+                                    console.log('[DEBUG] Checking reminders at:', now);
+                                    this.notifications.forEach(notification => {
+                                        const reminderTime = new Date(notification.reminder_time);
+                                        console.log('[DEBUG] Checking notification:', {
+                                            reminderTime,
+                                            timeDiff: Math.abs(now - reminderTime),
+                                            isNotified: notification.notified
+                                        });
+                                        if (!notification.notified && 
+                                            Math.abs(now - reminderTime) < 60000 && 
+                                            now >= reminderTime) {
+                                            console.log('[DEBUG] Showing reminder popup for:', notification);
+                                            this.showReminderPopup(notification);
+                                            notification.notified = true;
+                                        }
+                                    });
+                                },
+                                async showReminderPopup(reminder) {
+                                    try {
+                                        console.log('[DEBUG] Starting showReminderPopup with:', reminder);
+                                        this.currentReminder = reminder;
+                                        const sound = document.getElementById('notificationSound');
+                                        if (sound) {
+                                            try {
+                                                await sound.play();
+                                            } catch (error) {
+                                                console.error('[DEBUG] Error playing sound:', error);
+                                            }
+                                        } else {
+                                            console.error('[DEBUG] Notification sound element not found');
+                                        }
+                                        
+                                        const patientNameEl = document.getElementById('popupPatientName');
+                                        const roomNumberEl = document.getElementById('popupRoomNumber');
+                                        const noteTextEl = document.getElementById('popupNoteText');
+                                        const popupEl = document.getElementById('reminderPopup');
+                                        
+                                        if (patientNameEl && roomNumberEl && noteTextEl && popupEl) {
+                                            patientNameEl.textContent = reminder.patient_name;
+                                            roomNumberEl.textContent = `Room ${reminder.room_number}`;
+                                            noteTextEl.textContent = reminder.note_text;
+                                            popupEl.classList.remove('hidden');
+                                            console.log('[DEBUG] Popup displayed successfully');
+                                        } else {
+                                            console.error('[DEBUG] One or more popup elements not found');
+                                        }
+                                    } catch (error) {
+                                        console.error('[DEBUG] Error in showReminderPopup:', error);
+                                    }
+                                },
+                                async snoozeReminder() {
+                                    if (!this.currentReminder) return;
+                                    const response = await fetch(`/update-reminder/${this.currentReminder.id}/snooze`, {
+                                        method: 'POST'
+                                    });
+                                    if (response.ok) {
+                                        document.getElementById('reminderPopup').classList.add('hidden');
+                                        this.fetchNotifications();
+                                    }
+                                },
+                                async deleteReminder() {
+                                    if (!this.currentReminder) return;
+                                    const response = await fetch(`/update-reminder/${this.currentReminder.id}/delete`, {
+                                        method: 'POST'
+                                    });
+                                    if (response.ok) {
+                                        document.getElementById('reminderPopup').classList.add('hidden');
+                                        this.fetchNotifications();
+                                    }
+                                },
+                                dismissReminder() {
+                                    document.getElementById('reminderPopup').classList.add('hidden');
+                                },
+                                init() {
+                                    this.fetchNotifications();
+                                    // Check reminders every 10 seconds for testing
+                                    setInterval(() => {
+                                        this.checkReminders();
+                                    }, 10000);  // Changed from 60000 to 10000 for testing
+                                    // Fetch notifications every 30 seconds
+                                    setInterval(() => {
+                                        this.fetchNotifications();
+                                    }, 30000);
+                                }
+                             }"
+                             @click.away="isOpen = false">
+                            <button @click="
+                                console.log('[DEBUG] Notification button clicked');
+                                isOpen = !isOpen;
+                                fetchNotifications();
+                            " 
+                                class="relative text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-bell text-xl"></i>
+                                <span x-show="count > 0" 
+                                      x-text="count" 
+                                      class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                                </span>
                             </button>
+                            
+                            <!-- Dropdown Panel -->
+                            <div x-show="isOpen" 
+                                 @click.away="isOpen = false"
+                                 class="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl overflow-hidden z-50">
+                                
+                                <!-- Add live time display at the top -->
+                                <div class="p-2 bg-gray-50 border-b text-center"
+                                     x-data="{ 
+                                        currentTime: '',
+                                        updateTime() {
+                                            this.currentTime = new Date().toLocaleString('en-US', {
+                                                hour: 'numeric',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                hour12: true
+                                            });
+                                        }
+                                     }"
+                                     x-init="
+                                        updateTime();
+                                        setInterval(() => updateTime(), 1000);
+                                     ">
+                                    <span class="text-sm text-gray-600" x-text="currentTime"></span>
+                                </div>
+
+                                <!-- Upcoming Reminders Section -->
+                                <div class="p-3 border-b">
+                                    <h4 class="text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                                        <i class="fas fa-clock text-yellow-500 mr-2"></i>
+                                        Upcoming Reminders (Next 24h)
+                                    </h4>
+                                    
+                                    <!-- Upcoming Reminders List -->
+                                    <div class="space-y-2">
+                                        <template x-if="notifications.length > 0">
+                                            <template x-for="notification in notifications
+                                                .filter(n => n.is_upcoming)
+                                                .sort((a, b) => new Date(a.reminder_time) - new Date(b.reminder_time))" 
+                                                :key="notification.id">
+                                                <div class="bg-yellow-50 rounded-lg p-3 border border-yellow-100">
+                                                    <div class="flex justify-between items-start">
+                                                        <div class="flex items-center">
+                                                            <i class="fas fa-user-circle text-yellow-600 mr-2"></i>
+                                                            <span class="font-medium text-gray-800" x-text="notification.patient_name"></span>
+                                                        </div>
+                                                        <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
+                                                            Room <span x-text="notification.room_number"></span>
+                                                        </span>
+                                                    </div>
+                                                    <div class="mt-2 text-sm text-gray-600" x-text="notification.note_text"></div>
+                                                    <div class="mt-1 text-xs text-yellow-600">
+                                                        <i class="far fa-clock mr-1"></i>
+                                                        <span x-text="new Date(notification.reminder_time).toLocaleString('en-US', {
+                                                            day: 'numeric',
+                                                            month: 'short',
+                                                            year: 'numeric',
+                                                            hour: 'numeric',
+                                                            minute: '2-digit',
+                                                            hour12: true
+                                                        })"></span>
+                                                        <!-- Time remaining -->
+                                                        <span class="ml-2 bg-yellow-100 px-2 py-0.5 rounded" 
+                                                              x-text="(() => {
+                                                                const now = new Date();
+                                                                const reminderTime = new Date(notification.reminder_time);
+                                                                const diff = reminderTime - now;
+                                                                const minutes = Math.floor(diff / 60000);
+                                                                const hours = Math.floor(minutes / 60);
+                                                                const days = Math.floor(hours / 24);
+                                                                
+                                                                if (days > 0) return `${days}d ${hours % 24}h remaining`;
+                                                                if (hours > 0) return `${hours}h ${minutes % 60}m remaining`;
+                                                                return `${minutes}m remaining`;
+                                                              })()">
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </template>
+                                        
+                                        <!-- No Upcoming Reminders Message -->
+                                        <div x-show="!notifications.filter(n => n.is_upcoming).length" 
+                                             class="text-center py-4">
+                                            <i class="fas fa-bell-slash text-yellow-400 text-xl mb-2"></i>
+                                            <p class="text-sm text-gray-500">No upcoming reminders</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Future Reminders Section -->
+                                <div class="p-3">
+                                    <h4 class="text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                                        <i class="fas fa-calendar-alt text-gray-500 mr-2"></i>
+                                        Future Reminders
+                                    </h4>
+                                    
+                                    <!-- Future Reminders List -->
+                                    <div class="space-y-2">
+                                        <template x-if="notifications.length > 0">
+                                            <template x-for="notification in notifications
+                                                .filter(n => !n.is_upcoming)
+                                                .sort((a, b) => new Date(a.reminder_time) - new Date(b.reminder_time))" 
+                                                :key="notification.id">
+                                                <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                                                    <div class="flex justify-between items-start">
+                                                        <div class="flex items-center">
+                                                            <i class="fas fa-user-circle text-gray-600 mr-2"></i>
+                                                            <span class="font-medium text-gray-800" x-text="notification.patient_name"></span>
+                                                        </div>
+                                                        <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full">
+                                                            Room <span x-text="notification.room_number"></span>
+                                                        </span>
+                                                    </div>
+                                                    <div class="mt-2 text-sm text-gray-600" x-text="notification.note_text"></div>
+                                                    <div class="mt-1 text-xs text-gray-500">
+                                                        <i class="far fa-clock mr-1"></i>
+                                                        <span x-text="new Date(notification.reminder_time).toLocaleString('en-US', {
+                                                            day: 'numeric',
+                                                            month: 'short',
+                                                            year: 'numeric',
+                                                            hour: 'numeric',
+                                                            minute: '2-digit',
+                                                            hour12: true
+                                                        })"></span>
+                                                        <!-- Time remaining -->
+                                                        <span class="ml-2 bg-gray-100 px-2 py-0.5 rounded" 
+                                                              x-text="(() => {
+                                                                const now = new Date();
+                                                                const reminderTime = new Date(notification.reminder_time);
+                                                                const diff = reminderTime - now;
+                                                                const minutes = Math.floor(diff / 60000);
+                                                                const hours = Math.floor(minutes / 60);
+                                                                const days = Math.floor(hours / 24);
+                                                                
+                                                                if (days > 0) return `${days}d ${hours % 24}h remaining`;
+                                                                if (hours > 0) return `${hours}h ${minutes % 60}m remaining`;
+                                                                return `${minutes}m remaining`;
+                                                              })()">
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </template>
+                                        
+                                        <!-- No Future Reminders Message -->
+                                        <div x-show="!notifications.filter(n => !n.is_upcoming).length" 
+                                             class="text-center py-4">
+                                            <i class="fas fa-calendar-times text-gray-400 text-xl mb-2"></i>
+                                            <p class="text-sm text-gray-500">No future reminders</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <!-- Add this new button for the database editor -->
                         <a href="{{ url_for('main.database_editor') }}" class="text-gray-500 hover:text-gray-700 mr-4">
@@ -110,6 +382,71 @@
         </div>
     </div>
 
+    <div id="reminderPopup" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         x-data="{ 
+            currentTime: '',
+            updateTime() {
+                this.currentTime = new Date().toLocaleString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+            }
+         }"
+         x-init="
+            updateTime();
+            setInterval(() => updateTime(), 1000);
+         ">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <!-- Live time display -->
+            <div class="text-center mb-4 text-gray-600 text-sm">
+                <span x-text="currentTime"></span>
+            </div>
+            
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold text-gray-900" id="popupPatientName"></h3>
+                <p class="text-sm text-gray-600" id="popupRoomNumber"></p>
+            </div>
+            <p class="mb-4 text-gray-700" id="popupNoteText"></p>
+            <div class="flex justify-end space-x-3">
+                <button @click="$parent.snoozeReminder()" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Snooze 15min
+                </button>
+                <button @click="$parent.dismissReminder()" 
+                        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    Dismiss
+                </button>
+                <button @click="$parent.deleteReminder()" 
+                        class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
     {% block extra_scripts %}{% endblock %}
+
+    <script>
+        function requestNotificationPermission() {
+            if ("Notification" in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        console.log("Notification permission granted");
+                    }
+                });
+            }
+        }
+
+        function showNotification(title, body) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(title, {
+                    body: body,
+                    icon: '/static/notification-icon.png'
+                });
+            }
+        }
+    </script>
 </body>
 </html>

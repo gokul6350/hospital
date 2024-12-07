@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
-from .models import db, Patient, Appointment, Doctor, OPRecord, Inpatient, Staff, DischargedPatient
+from .models import db, Patient, Appointment, Doctor, OPRecord, Inpatient, Staff, DischargedPatient, DoctorNotes
 from datetime import datetime, date, timedelta
 from sqlalchemy import inspect, text
 import csv
@@ -8,13 +8,143 @@ from sqlalchemy.orm import aliased
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from io import BytesIO
+import tkinter as tk
+from tkinter import messagebox
+from datetime import datetime, timezone
+import threading
+import time
+import os
+import google.generativeai as genai
 
+def format_datetime(dt_str):
+    dt = datetime.fromisoformat(dt_str)
+    return dt.strftime('%Y-%m-%d %H:%M:%S')
+
+# Add this function to handle the popup
+def show_reminder_popup(patient_name, note_text, room_number):
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+    message = f"Reminder for patient: {patient_name}\nRoom: {room_number}\nNote: {note_text}"
+    messagebox.showinfo("Doctor Reminder", message)
+    root.destroy()
+
+# Add this function to check reminders periodically
+def check_reminders(app):
+    with app.app_context():
+        while True:
+            try:
+                current_time = datetime.now(timezone.utc)
+                
+                # Create a new session for this check
+                session = db.create_scoped_session()
+                
+                try:
+                    # Query for due reminders
+                    due_reminders = session.query(
+                        DoctorNotes, 
+                        Inpatient
+                    ).join(
+                        Inpatient,
+                        DoctorNotes.patient_id == Inpatient.id
+                    ).filter(
+                        DoctorNotes.reminder_time.isnot(None),
+                        DoctorNotes.reminder_time <= current_time
+                    ).all()
+
+                    for note, inpatient in due_reminders:
+                        try:
+                            note_data = json.loads(note.note_text)[0]
+                            # Show popup for each due reminder
+                            show_reminder_popup(
+                                inpatient.patient_name,
+                                note_data.get('text', ''),
+                                inpatient.room_number
+                            )
+                            # Clear the reminder time after showing
+                            note.reminder_time = None
+                            session.commit()
+                        except Exception as e:
+                            session.rollback()
+                            print(f"Error processing reminder: {str(e)}")
+                            continue
+
+                except Exception as e:
+                    session.rollback()
+                    print(f"Error in reminder check: {str(e)}")
+                
+                finally:
+                    # Always close the session
+                    session.close()
+
+            except Exception as e:
+                print(f"Critical error in reminder checker: {str(e)}")
+            
+            # Wait for 1 minute before checking again
+            time.sleep(60)
+
+# Make sure to pass the app instance to the thread
+def start_reminder_checker(app):
+    reminder_thread = threading.Thread(target=check_reminders, args=(app,), daemon=True)
+    reminder_thread.start()
 
 main = Blueprint('main', __name__)
 
 @main.route('/')
 def index():
-    return render_template('dashboard.html')
+    # Get total counts
+    patients_count = db.session.query(Patient).count()
+    op_records_count = db.session.query(OPRecord).count()
+    inpatients_count = db.session.query(Inpatient).count()
+    appointments_count = db.session.query(Appointment).count()
+    doctors_count = db.session.query(Doctor).count()
+    staff_count = db.session.query(Staff).count()
+    discharged_count = db.session.query(DischargedPatient).count()
+
+    # Calculate revenue (assuming 10000 is the target)
+    revenue = 4800  # Example static value
+    max_revenue = 10000
+    revenue_percentage = min((revenue/max_revenue) * 100, 100)
+
+    # Get monthly data for charts
+    current_year = datetime.now().year
+    monthly_ops = db.session.query(
+        db.func.strftime('%m', OPRecord.visit_date).label('month'),
+        db.func.count(OPRecord.id).label('count')
+    ).filter(
+        db.func.strftime('%Y', OPRecord.visit_date) == str(current_year)
+    ).group_by('month').all()
+
+    monthly_ips = db.session.query(
+        db.func.strftime('%m', Inpatient.admission_date).label('month'),
+        db.func.count(Inpatient.id).label('count')
+    ).filter(
+        db.func.strftime('%Y', Inpatient.admission_date) == str(current_year)
+    ).group_by('month').all()
+
+    # Format data for charts
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    ops_data = [0] * 12
+    ips_data = [0] * 12
+
+    for month, count in monthly_ops:
+        ops_data[int(month)-1] = count
+
+    for month, count in monthly_ips:
+        ips_data[int(month)-1] = count
+
+    return render_template('new_dashboard.html',
+                         patients_count=patients_count,
+                         op_records_count=op_records_count,
+                         inpatients_count=inpatients_count,
+                         appointments_count=appointments_count,
+                         doctors_count=doctors_count,
+                         staff_count=staff_count,
+                         discharged_count=discharged_count,
+                         revenue=revenue,
+                         revenue_percentage=revenue_percentage,
+                         months=months,
+                         ops_data=ops_data,
+                         ips_data=ips_data)
 
 
 
@@ -127,11 +257,30 @@ def appointment_management(id=None):
     doctors = Doctor.query.all()  # Fetch all doctors
     if request.method == 'GET':
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            # Use a join to get the doctor's name
-            doctor_alias = aliased(Doctor)
-            appointments = db.session.query(Appointment, doctor_alias.name.label('doctor_name')).join(
-                doctor_alias, Appointment.doctor_id == doctor_alias.id
-            ).all()
+            # Create base query
+            
+            query = db.session.query(Appointment, Doctor.name.label('doctor_name')).join(
+                Doctor, Appointment.doctor_id == Doctor.id
+            )
+
+            # Apply filters
+            search = request.args.get('search', '')
+            start_date = request.args.get('start_date')
+            end_date = request.args.get('end_date')
+
+            if search:
+                query = query.filter(db.or_(
+                    Appointment.patient_name.ilike(f'%{search}%'),
+                    Doctor.name.ilike(f'%{search}%')
+                ))
+            if start_date:
+                query = query.filter(Appointment.appointment_date >= datetime.strptime(start_date, '%Y-%m-%d').date())
+            if end_date:
+                query = query.filter(Appointment.appointment_date <= datetime.strptime(end_date, '%Y-%m-%d').date())
+
+
+            appointments = query.all()
+            
             
             return jsonify([{
                 'id': a.Appointment.id,
@@ -153,7 +302,8 @@ def appointment_management(id=None):
             doctor_id=request.form['doctor'],
             appointment_date=datetime.strptime(request.form['appointment_date'], '%Y-%m-%d').date(),
             appointment_time=datetime.strptime(request.form['appointment_time'], '%H:%M').time(),
-            reason=request.form['reason']
+            reason=request.form['reason'],
+            status=request.form.get('status', 'open')
         )
         db.session.add(new_appointment)
         db.session.commit()
@@ -168,6 +318,7 @@ def appointment_management(id=None):
         appointment.appointment_date = datetime.strptime(request.form['appointment_date'], '%Y-%m-%d').date()
         appointment.appointment_time = datetime.strptime(request.form['appointment_time'], '%H:%M').time()
         appointment.reason = request.form['reason']
+        appointment.status = request.form.get('status', appointment.status)
         db.session.commit()
         return jsonify({'success': True, 'message': 'Appointment updated successfully'})    
     
@@ -186,6 +337,12 @@ def appointment_management(id=None):
 
 
 
+
+@main.route('/pharmacy')
+def pharmacy():
+    # The Streamlit app runs on port 8501 by default
+    streamlit_url = "http://localhost:8501"
+    return render_template('pharmacy.html', streamlit_url=streamlit_url)
 
 @main.route('/insurance')
 def insurance():
@@ -429,7 +586,18 @@ def inpatient_management(id=None):
     if request.method == 'GET':
         if id:
             inpatient = Inpatient.query.get_or_404(id)
-            return jsonify(inpatient.to_dict())
+            # Get the latest doctor note for this patient
+            doctor_note = DoctorNotes.query.filter_by(patient_id=id).order_by(DoctorNotes.id.desc()).first()
+            return jsonify({
+                'id': inpatient.id,
+                'patient_name': inpatient.patient_name,
+                'room_number': inpatient.room_number,
+                'doctor_id': inpatient.doctor_id,
+                'doctor_name': inpatient.doctor.name if inpatient.doctor else None,
+                'admission_date': inpatient.admission_date.strftime('%Y-%m-%d'),
+                'diagnosis': inpatient.diagnosis,
+                'doctor_note': doctor_note.note_text if doctor_note else None
+            })
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             query = Inpatient.query
@@ -450,21 +618,32 @@ def inpatient_management(id=None):
                 query = query.filter(Inpatient.admission_date <= datetime.strptime(end_date, '%Y-%m-%d').date())
 
             inpatients = query.all()
-            return jsonify([inpatient.to_dict() for inpatient in inpatients])
+            result = []
+            for inpatient in inpatients:
+                data = inpatient.to_dict()
+                # Get the latest doctor note for each patient
+                doctor_note = DoctorNotes.query.filter_by(patient_id=inpatient.id).order_by(DoctorNotes.id.desc()).first()
+                data['doctor_note'] = doctor_note.note_text if doctor_note else None
+                result.append(data)
+            return jsonify(result)
         else:
             return render_template('inpatient_management.html', doctors=doctors)
     
     elif request.method == 'POST':
-        new_inpatient = Inpatient(
-            patient_name=request.form['patient_name'],
-            room_number=request.form['room_number'],
-            doctor_id=int(request.form['doctor']),
-            admission_date=datetime.strptime(request.form['admission_date'], '%Y-%m-%d').date(),
-            diagnosis=request.form.get('diagnosis')
-        )
-        db.session.add(new_inpatient)
-        db.session.commit()
-        return jsonify({'success': True, 'message': 'Inpatient admitted successfully'})
+        try:
+            new_inpatient = Inpatient(
+                patient_name=request.form['patient_name'],
+                room_number=request.form['room_number'],
+                doctor_id=int(request.form['doctor']),
+                admission_date=datetime.strptime(request.form['admission_date'], '%Y-%m-%d').date(),
+                diagnosis=request.form.get('diagnosis', '')
+            )
+            db.session.add(new_inpatient)
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Inpatient admitted successfully'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': str(e)}), 400
     
     elif request.method == 'PUT':
         inpatient = Inpatient.query.get_or_404(id)
@@ -526,23 +705,32 @@ def staff():
 
 @main.route('/inpatient-management/<int:id>/discharge', methods=['POST'])
 def discharge_inpatient(id):
-    inpatient = Inpatient.query.get_or_404(id)
-    discharge_date = datetime.strptime(request.json['discharge_date'], '%Y-%m-%d').date()
+    try:
+        inpatient = Inpatient.query.get_or_404(id)
+        discharge_date = datetime.strptime(request.json['discharge_date'], '%Y-%m-%d').date()
 
-    discharged_patient = DischargedPatient(
-        patient_name=inpatient.patient_name,
-        room_number=inpatient.room_number,
-        doctor_id=inpatient.doctor_id,
-        admission_date=inpatient.admission_date,
-        discharge_date=discharge_date,
-        diagnosis=inpatient.diagnosis
-    )
+        # Create discharged patient record
+        discharged_patient = DischargedPatient(
+            patient_name=inpatient.patient_name,
+            room_number=inpatient.room_number,
+            doctor_id=inpatient.doctor_id,
+            admission_date=inpatient.admission_date,
+            discharge_date=discharge_date,
+            diagnosis=inpatient.diagnosis
+        )
 
-    db.session.add(discharged_patient)
-    db.session.delete(inpatient)
-    db.session.commit()
+        # Delete doctor notes first (to handle CASCADE properly)
+        DoctorNotes.query.filter_by(patient_id=id).delete()
+        
+        # Add discharged patient and remove from inpatients
+        db.session.add(discharged_patient)
+        db.session.delete(inpatient)
+        db.session.commit()
 
-    return jsonify({'success': True, 'message': 'Patient discharged successfully'})
+        return jsonify({'success': True, 'message': 'Patient discharged successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
 
 @main.route('/op-management/<int:id>/status', methods=['PUT'])
 def update_op_record_status(id):
@@ -666,6 +854,361 @@ def add_patient_and_op():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)})
+
+@main.route('/inpatient-management/<int:patient_id>/update-note', methods=['POST'])
+def update_inpatient_note(patient_id):
+    try:
+        data = request.json
+        note_text = data.get('note_text')
+        reminder_time = data.get('reminder_time')
+        
+        # Get the existing note
+        note = DoctorNotes.query.filter_by(patient_id=patient_id).first()
+        
+        if note:
+            # Update existing note
+            note.note_text = note_text
+            if reminder_time:
+                note.reminder_time = datetime.fromisoformat(reminder_time)
+            else:
+                note.reminder_time = None
+        else:
+            # Create new note
+            note = DoctorNotes(
+                patient_id=patient_id,
+                note_text=note_text,
+                reminder_time=datetime.fromisoformat(reminder_time) if reminder_time else None
+            )
+            db.session.add(note)
+        
+        db.session.commit()
+        
+        # Parse the notes to return them with IDs
+        notes = []
+        try:
+            parsed_notes = json.loads(note_text)
+            for note_data in parsed_notes:
+                notes.append({
+                    'text': note_data.get('text', ''),
+                    'datetime': note_data.get('datetime', ''),
+                    'reminder_time': note_data.get('reminder_time'),
+                    'note_id': note_data.get('note_id')
+                })
+        except json.JSONDecodeError:
+            pass
+        
+        return jsonify({
+            'success': True,
+            'notes': notes,
+            'message': 'Notes updated successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating notes: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@main.route('/get-reminders')
+def get_reminders():
+    print("\n[DEBUG] /get-reminders route accessed")
+    try:
+        current_time = datetime.utcnow()
+        print(f"[DEBUG] Current time: {current_time}")
+        
+        # Query for notes with non-null reminder_time
+        notes = db.session.query(
+            DoctorNotes,
+            Inpatient
+        ).join(
+            Inpatient,
+            DoctorNotes.patient_id == Inpatient.id
+        ).filter(
+            DoctorNotes.reminder_time.isnot(None),
+            DoctorNotes.reminder_time >= current_time
+        ).all()
+        
+        print(f"[DEBUG] Found {len(notes)} notes with reminders")
+        
+        reminder_data = []
+        for note, inpatient in notes:
+            try:
+                print(f"\n[DEBUG] Processing note ID: {note.id}")
+                note_data = json.loads(note.note_text)[0]
+                reminder_time = note.reminder_time
+                
+                is_upcoming = (reminder_time - current_time).total_seconds() <= 86400
+                
+                reminder_info = {
+                    'id': note.id,
+                    'patient_name': inpatient.patient_name,
+                    'note_text': note_data.get('text', ''),
+                    'reminder_time': format_datetime(reminder_time.isoformat()),
+                    'is_upcoming': is_upcoming,
+                    'room_number': inpatient.room_number
+                }
+                
+                print(f"[DEBUG] Processed reminder: {reminder_info}")
+                reminder_data.append(reminder_info)
+                
+            except Exception as e:
+                print(f"[ERROR] Error processing note {note.id}: {str(e)}")
+                continue
+        
+        response_data = {
+            'count': len(reminder_data),
+            'reminders': reminder_data
+        }
+        print(f"\n[DEBUG] Sending response: {json.dumps(response_data, indent=2)}")
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        print(f"[ERROR] Error in get_reminders: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+@main.route('/inpatient-management/<int:id>/notes', methods=['GET'])
+def get_patient_notes(id):
+    try:
+        # Get all notes for this patient
+        notes = DoctorNotes.query.filter_by(patient_id=id).order_by(DoctorNotes.id).all()
+        
+        all_notes = []
+        for note in notes:
+            try:
+                note_data = json.loads(note.note_text)[0]  # Get the note data
+                note_data['note_id'] = note.id
+                note_data['reminder_time'] = note.reminder_time.isoformat() if note.reminder_time else None
+                all_notes.append(note_data)
+            except (json.JSONDecodeError, IndexError):
+                continue
+                
+        return jsonify({
+            'success': True,
+            'notes': all_notes
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@main.route('/test-reminder')
+def test_reminder():
+    print("[DEBUG] Test reminder route accessed")
+    return jsonify({"message": "Test successful"})
+
+@main.route('/update-reminder/<int:note_id>/snooze', methods=['POST'])
+def snooze_reminder(note_id):
+    try:
+        note = DoctorNotes.query.get_or_404(note_id)
+        # Add 15 minutes to the current reminder time
+        note.reminder_time = note.reminder_time + timedelta(minutes=15)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+@main.route('/update-reminder/<int:note_id>/delete', methods=['POST'])
+def delete_reminder(note_id):
+    try:
+        note = DoctorNotes.query.get_or_404(note_id)
+        # Set reminder_time to None instead of deleting the note
+        note.reminder_time = None
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+    
+
+@main.route('/connetreminders')
+def connectreminders():
+    try:
+        current_time = datetime.utcnow()
+        
+        # Query for notes with non-null reminder_time
+        notes = db.session.query(
+            DoctorNotes,
+            Inpatient
+        ).join(
+            Inpatient,
+            DoctorNotes.patient_id == Inpatient.id
+        ).filter(
+            DoctorNotes.reminder_time.isnot(None),
+            DoctorNotes.reminder_time >= current_time
+        ).order_by(DoctorNotes.reminder_time).all()
+        
+        reminders = []
+        for note, inpatient in notes:
+            try:
+                note_data = json.loads(note.note_text)[0]
+                reminder_time = note.reminder_time
+                
+                # Calculate priority based on time difference
+                time_diff = (reminder_time - current_time).total_seconds()
+                if time_diff <= 3600:  # Within 1 hour
+                    priority = "high"
+                elif time_diff <= 86400:  # Within 24 hours
+                    priority = "medium"
+                else:
+                    priority = "low"
+                
+                reminder_info = {
+                    "id": str(note.id),
+                    "title": f"Patient: {inpatient.patient_name}",
+                    "description": note_data.get('text', ''),
+                    "datetime": reminder_time.isoformat(),
+                    "priority": priority
+                }
+                
+                reminders.append(reminder_info)
+                
+            except Exception as e:
+                print(f"[ERROR] Error processing note {note.id}: {str(e)}")
+                continue
+        
+        return jsonify({
+            "status": "success",
+            "reminders": reminders
+        })
+        
+    except Exception as e:
+        print(f"[ERROR] Error in get_reminders: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500  
+
+@main.route('/delete-doctor-note', methods=['POST'])
+def delete_doctor_note():
+    try:
+        data = request.json
+        note_id = data.get('note_id')
+        patient_id = data.get('patient_id')
+        
+        if patient_id:
+            # Delete all notes for a patient
+            DoctorNotes.query.filter_by(patient_id=patient_id).delete()
+            message = 'All notes deleted for patient'
+        elif note_id:
+            # Delete specific note
+            note = DoctorNotes.query.get_or_404(note_id)
+            db.session.delete(note)
+            message = 'Note deleted successfully'
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Either note_id or patient_id is required'
+            }), 400
+            
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': message
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting note: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@main.route('/chat')
+def chat():
+    # Get database schema info for the chat interface
+    tables_info = {
+        'Patient': {
+            'count': db.session.query(Patient).count(),
+            'columns': [column.name for column in Patient.__table__.columns]
+        },
+        'Doctor': {
+            'count': db.session.query(Doctor).count(),
+            'columns': [column.name for column in Doctor.__table__.columns]
+        },
+        'Appointment': {
+            'count': db.session.query(Appointment).count(),
+            'columns': [column.name for column in Appointment.__table__.columns]
+        },
+        'OPRecord': {
+            'count': db.session.query(OPRecord).count(),
+            'columns': [column.name for column in OPRecord.__table__.columns]
+        },
+        'Inpatient': {
+            'count': db.session.query(Inpatient).count(),
+            'columns': [column.name for column in Inpatient.__table__.columns]
+        },
+        'Staff': {
+            'count': db.session.query(Staff).count(),
+            'columns': [column.name for column in Staff.__table__.columns]
+        }
+    }
+    
+    return render_template('chat.html', tables_info=tables_info)
+
+@main.route('/chat/query', methods=['POST'])
+def chat_query():
+    try:
+        question = request.json.get('question')
+        
+        # Initialize Gemini (you'll need to move the Gemini setup to a proper config)
+        genai.configure(api_key="AIzaSyBoUqeC-oQDQQWMe5-Vcmd17RoGw8qqZVM")
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config={
+                "temperature": 0.1,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 8192,
+            }
+        )
+
+        # Generate and execute SQL query
+        # (You'll need to implement proper SQL safety checks)
+        sql_query = model.generate_content(f"Convert to SQL: {question}").text
+        result = db.session.execute(text(sql_query))
+        data = [dict(row) for row in result]
+
+        # Format response
+        response = model.generate_content(f"Question: {question}\nData: {data}").text
+
+        return jsonify({
+            'sql_query': sql_query,
+            'data': data[:4],  # First 4 rows
+            'response': response
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@main.route('/appointment-management/<int:id>/status', methods=['PUT'])
+def update_appointment_status(id):
+    if not request.is_json:
+        return jsonify({'success': False, 'message': 'Invalid content type, expected JSON'}), 400
+    
+    try:
+        appointment = Appointment.query.get_or_404(id)
+        data = request.get_json()
+        
+        if 'status' not in data:
+            return jsonify({'success': False, 'message': 'Status field is required'}), 400
+            
+        appointment.status = data['status']
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Status updated successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+
+
+
+
+
 
 
 

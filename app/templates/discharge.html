@@ -12,7 +12,7 @@
         <!-- Filters -->
         <form id="filterForm" class="mb-6">
             <div class="flex space-x-4">
-                <input type="text" name="search" placeholder="Search discharged patients..." class="border p-2 rounded">
+                <input type="text" id="searchInput" name="search" placeholder="Search discharged patients..." class="border p-2 rounded">
                 <input type="date" name="start_date" class="border p-2 rounded">
                 <input type="date" name="end_date" class="border p-2 rounded">
                 <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Filter</button>
@@ -82,9 +82,26 @@ function loadDischargedPatients() {
     });
 }
 
+// Add event listener for real-time search
+document.getElementById('searchInput').addEventListener('input', function() {
+    // Use a debounce function to prevent too many requests
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+        loadDischargedPatients();
+    }, 300); // Wait for 300ms after the user stops typing
+});
+
+// Add event listeners for date inputs
+document.querySelectorAll('#filterForm input[type="date"]').forEach(input => {
+    input.addEventListener('change', loadDischargedPatients);
+});
+
+// Remove the submit event listener since we don't need it anymore
+document.getElementById('filterForm').removeEventListener('submit', loadDischargedPatients);
+
+// Prevent form submission
 document.getElementById('filterForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    loadDischargedPatients();
 });
 
 // Load discharged patients when the page loads

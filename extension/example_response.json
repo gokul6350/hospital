@@ -1,0 +1,12 @@
+{
+    "reminders": [
+        {
+            "id": "1",
+            "title": "Team Meeting",
+            "description": "Weekly team sync",
+            "datetime": "2024-03-20T14:30:00",
+            "priority": "high"
+        }
+    ],
+    "status": "success"
+} 
