@@ -13,10 +13,56 @@ def remove_sql_markers(text):
 
 class HospitalDatabaseQA:
     def __init__(self, db_path="instance/hospital.db"):
-        # Setup SQLite with check_same_thread=False
         self.db_path = db_path
         self.lock = Lock()
+        # Setup Gemini for each request
+        genai.configure(api_key="AIzaSyBoUqeC-oQDQQWMe5-Vcmd17RoGw8qqZVM")
         
+        # Create two separate models with their own configurations
+        self.sql_model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config={
+                "temperature": 0.1,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 8192,
+            }
+        )
+        
+        self.format_model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config={
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 8192,
+            }
+        )
+        
+        # Initialize both chats with their respective histories
+        if 'history_toggle' in st.session_state and st.session_state.history_toggle:
+            # SQL Chat initialization
+            chat_history = []
+            for entry in st.session_state.sql_history:
+                chat_history.extend([
+                    {"role": "user", "parts": [entry["prompt"]]},
+                    {"role": "model", "parts": [entry["query"]]}
+                ])
+            self.sql_chat = self.sql_model.start_chat(history=chat_history)
+            
+            # Format Chat initialization
+            format_chat_history = []
+            for entry in st.session_state.format_history:
+                format_chat_history.extend([
+                    {"role": "user", "parts": [entry["prompt"]]},
+                    {"role": "model", "parts": [entry["result"]]}
+                ])
+            self.format_chat = self.format_model.start_chat(history=format_chat_history)
+        else:
+            self.sql_chat = self.sql_model.start_chat(history=[])
+            self.format_chat = self.format_model.start_chat(history=[])
+        
+
     def get_connection(self):
         return sqlite3.connect(self.db_path, check_same_thread=False)
         
@@ -41,146 +87,178 @@ class HospitalDatabaseQA:
 
     def ask(self, question):
         try:
-            # Setup Gemini for each request
-            genai.configure(api_key="AIzaSyBoUqeC-oQDQQWMe5-Vcmd17RoGw8qqZVM")
-            model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
-                generation_config={
-                    "temperature": 0.1,
-                    "top_p": 0.95,
-                    "top_k": 40,
-                    "max_output_tokens": 8192,
-                }
-            )
-
-            # Get schema
+            print("\n========== PROCESSING NEW QUERY ==========")
+            print(f"User Input: {question}")
+            
+            # 1. Get database schema
             schema = self._get_database_schema()
             
-            # Generate SQL query
-            prompt = f"""
+            # 2. Generate SQL query from user question using chat history
+            sql_prompt = f"""
             Given the following SQLite database schema:
             {schema}
 
             Generate a SQL query to answer this question: {question}
             Return ONLY the SQL query, without any explanations.
+            if no answer is found, return "SELECT 0 WHERE 0;"
             """
             
-            response = model.generate_content(prompt)
-            sql_query = remove_sql_markers(response.text.strip())
+            print("\n---------- SQL Prompt ----------")
+            print(sql_prompt)
             
-            print("\n==============")
-            print(f"User Input: {question}")
-            print(f"Generated SQL Query: {sql_query}")
+            # Use chat with history instead of single generate_content
+            sql_response = self.sql_chat.send_message(sql_prompt)
+            sql_query = remove_sql_markers(sql_response.text.strip())
             
-            # Execute query with new connection
+            # Update session state history with the chat history
+            st.session_state.sql_history = [
+                {"role": msg.role, "parts": [part.text for part in msg.parts]}
+                for msg in self.sql_chat.history
+            ]
+            
+            print("\n---------- Generated SQL Query ----------")
+            print(sql_query)
+            
+            # Store SQL prompt in history
+       
+            st.session_state.sql_history.append({
+                    "prompt": sql_prompt,
+                    "query": sql_query
+                })
+            
+            # 3. Execute query and get results
+            print("\n---------- Executing Query ----------")
             with self.lock:
                 conn = self.get_connection()
                 cursor = conn.cursor()
+                is_select = sql_query.strip().upper().startswith('SELECT')
                 cursor.execute(sql_query)
-                results = cursor.fetchall()
                 
-                print("Query Results (first 4 rows):")
-                for row in results[:4]:
-                    print(row)
+                if is_select:
+                    results = cursor.fetchall()
+                    column_names = [description[0] for description in cursor.description]
+                    formatted_results = []
+                    for row in results:
+                        formatted_row = dict(zip(column_names, row))
+                        formatted_results.append(formatted_row)
+                    print(f"formatted_results: {formatted_results}")
+                    data_message = f"Query returned: {formatted_results[:11]}"
+                else:
+                    conn.commit()
+                    affected_rows = cursor.rowcount
+                    data_message = f"Operation successful. Affected rows: {affected_rows}"
                 
                 conn.close()
             
-            # Format response
-            #formatted_data = results[0][0] if results and len(results) > 0 else 0
-            formatted_data = results
-            prompt = f"""
+            print("\n---------- Query Results ----------")
+            print(data_message)
+
+            # 4. Format final response
+            format_prompt = f"""
             Question: {question}
-            Raw data from database: The query returned {formatted_data}
+            SQL Query: {sql_query}
+            Result: {data_message}
             
-            Please provide a natural, helpful response to the question using this exact number.
-            Make sure to use the exact number from the data in your response.
+            Please provide a natural, helpful response about what was done.
             """
-            print("==============")
-            print(prompt)
-            print("==============")
-            response = model.generate_content(prompt)
-            print(f"Gemini Response: {response.text.strip()}")
-            print("==============\n")
             
-            return response.text.strip()
+            print("\n---------- Format Prompt ----------")
+            print(format_prompt)
             
-        except sqlite3.Error as e:
-            print(f"\n==============\nDatabase Error: {e}\n==============\n")
-            return f"Database error: {e}"
+            st.session_state.format_history.append({
+                    "prompt": format_prompt,
+                    "result": data_message
+                })            
+            # Use format chat instead of generate_content
+            final_response = self.format_chat.send_message(format_prompt)
+            
+            # Update format history in session state
+            st.session_state.format_history = [
+                {"role": msg.role, "parts": [part.text for part in msg.parts]}
+                for msg in self.format_chat.history
+            ]
+            
+            print("\n---------- Final Response ----------")
+            print(final_response.text.strip())
+            print("\n====================================")
+            
+            return final_response.text.strip()
+            
         except Exception as e:
-            print(f"\n==============\nError: {e}\n==============\n")
+            print(f"\n---------- ERROR ----------")
+            print(f"Error occurred: {str(e)}")
+            print("\n====================================")
             return f"Error: {e}"
 
-    def format_response(self, question, data):
-        # Convert tuple data to a more readable format
-        if data:
-            formatted_data = ", ".join(row[0] for row in data)
-        else:
-            formatted_data = "no tables found"
-        
-        prompt = f"""
-        Question: {question}
-        Raw data from database: The query returned the following tables: {formatted_data}
-        
-        Please provide a natural, helpful response to the question using this exact information.
-        """
-        print("==============")
-        print(prompt)
-        print("==============")
-        response = self.model.generate_content(prompt)
-
-        return response.text.strip()
-
 def chat_interface():
-    # Initialize chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    
-    # Add clear chat button to sidebar
-    with st.sidebar:
-        if st.button("Clear Chat History"):
-            st.session_state.messages = []
-            st.rerun()
-
-    # Add custom CSS for chat container
-    st.markdown("""
-        <style>
-            [data-testid="stChatMessageContainer"] {
-                max-height: 400px;
-                overflow-y: auto;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # Initialize QA system for each session
+    # Initialize qa_system and histories in session state
     if "qa_system" not in st.session_state:
         st.session_state.qa_system = HospitalDatabaseQA()
+        print(f"qa_system initialized")
+    if "sql_history" not in st.session_state:
+        st.session_state.sql_history = []
+        print(f"sql_history reseted")
+    if "format_history" not in st.session_state:
+        st.session_state.format_history = []
+        print(f"format_history reseted")
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
+        print(f"chat_messages reseted")
+    # Initialize history_toggle if it doesn't exist
+    if "history_toggle" not in st.session_state:
+        st.session_state.history_toggle = False
+        print(f"history_toggle initialized")
 
-    # Display chat messages from history on app rerun
-    for message in st.session_state.messages:
+    # Add buttons to sidebar
+    with st.sidebar:
+        if st.button("Reset All History"):
+            st.session_state.chat_messages = []
+            st.session_state.sql_history = []
+            st.session_state.format_history = []
+            st.rerun()
+            
+        # Initialize toggle state in session if it doesn't exist
+        if 'history_toggle' not in st.session_state:
+            st.session_state.history_toggle = False
+            
+        # Add toggle that does nothing
+        st.toggle('🔄 Chat Memory', key='history_toggle')
+
+    # Display chat messages in main screen
+    for message in st.session_state.chat_messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Accept user input
+        # Chat input
     if prompt := st.chat_input("Ask about the database..."):
-        # Create a new QA system instance for each query
-        qa_system = HospitalDatabaseQA()
-        
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        # Display user message
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Generate and display assistant response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = qa_system.ask(prompt)
-            st.markdown(response)
+            # Add user message to chat history
+            st.session_state.chat_messages.append({"role": "user", "content": prompt})
             
-        # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            # Display user message
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            # Generate and display assistant response
+            with st.chat_message("assistant"):
+                with st.status("Processing query...", expanded=True) as status:
+                    st.write("Generating SQL query...")
+                    response = st.session_state.qa_system.ask(prompt)
+                    # Display the SQL query from history
+                    if st.session_state.sql_history:
+                        latest_query = st.session_state.sql_history[-1]['query']
+                        st.write(latest_query)
+                        print(f"latest_query: {latest_query}")
+                    else:
+                        print(f"st.session_state.sql_history: {st.session_state.sql_history}")  
+                        print(f"chat_messages: {st.session_state.chat_messages}")  
+
+                    st.write("Executing database query...")
+                    status.update(label="Complete!", state="complete",expanded=False)
+                st.markdown(response)
+                
+            # Add assistant response to chat history
+            st.session_state.chat_messages.append({"role": "assistant", "content": response})
+            print(f"sql_history: {st.session_state.sql_history}")
 
 def main():
     st.title("Chat with SQL Database")
